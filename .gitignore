@@ -1,0 +1,74 @@
+# Node modules
+node_modules/
+engine/node_modules/
+engine/examples/node_modules/
+
+# Build outputs
+engine/build/
+engine/examples/dist/
+engine/examples/cache/
+
+# Temporary files
+*.tmp
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Backup files
+backup-*.tar.gz
+*.tar.gz
+!node_modules/**/*.tar.gz
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Local backups
+backup-*.tar.gz
+*.tar.gz
+
+# Cursor (keep rules, ignore generated)
+.cursor/*
+!.cursor/rules.md
+!.cursor/rules
+!.cursor/settings.json
+!.cursor/extensions.json
+
+# Caches / deps
+.cache/
+**/.cache/
+node_modules/
+
+# Large local archives
+*.tar.gz
+engine/.git_backup_*/
+**/.git_backup_*/

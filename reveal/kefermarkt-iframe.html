@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kefermarkt Church - SuperSplat Embed</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            background: #000;
+        }
+
+        #splat-viewer {
+            width: 100vw;
+            height: 100vh;
+            border: none;
+        }
+
+        /* UI Overlay */
+        .ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 100;
+        }
+
+        /* Информационная панель */
+        .info-panel {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+            pointer-events: auto;
+            max-width: 350px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        }
+
+        .info-panel h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+            color: #4CAF50;
+        }
+
+        .info-panel p {
+            font-size: 14px;
+            line-height: 1.6;
+            margin-bottom: 15px;
+            color: #e0e0e0;
+        }
+
+        .info-panel .attribution {
+            font-size: 12px;
+            color: #888;
+            border-top: 1px solid #444;
+            padding-top: 10px;
+            margin-top: 10px;
+        }
+
+        .source-badge {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(255, 152, 0, 0.95);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: bold;
+            backdrop-filter: blur(10px);
+            pointer-events: auto;
+            box-shadow: 0 4px 12px rgba(255, 152, 0, 0.4);
+        }
+
+        .controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+            pointer-events: auto;
+        }
+
+        .controls button {
+            background: rgba(76, 175, 80, 0.95);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .controls button:hover {
+            background: rgba(76, 175, 80, 1);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(76, 175, 80, 0.6);
+        }
+
+        .fullscreen-btn {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(33, 150, 243, 0.95);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            pointer-events: auto;
+        }
+
+        .fullscreen-btn:hover {
+            background: rgba(33, 150, 243, 1);
+        }
+    </style>
+</head>
+<body>
+    <!-- SuperSplat Iframe с максимальным качеством -->
+    <iframe 
+        id="splat-viewer"
+        src="https://superspl.at/s?id=c67edb74"
+        allow="fullscreen; accelerometer; gyroscope"
+        allowfullscreen
+    ></iframe>
+    
+    <div class="ui-overlay">
+        <!-- Badge источника -->
+        <div class="source-badge">
+            ✨ Максимальное качество от SuperSplat
+        </div>
+
+        <!-- Информационная панель -->
+        <div class="info-panel">
+            <h1>Kefermarkt Church</h1>
+            <p>Позднеготическая церковь, построенная около 1470 года, знаменита своим выдающимся крылатым алтарём XV века.</p>
+            <p>Это встроенная версия SuperSplat с <strong>полным качеством</strong> оригинального рендера.</p>
+            <p class="attribution">
+                By Schindelar3D in cooperation with Fotomento<br>
+                Gaussian Splatting Technology<br>
+                <a href="https://superspl.at/view?id=c67edb74" target="_blank" style="color: #4CAF50;">Открыть в SuperSplat</a>
+            </p>
+        </div>
+
+        <!-- Кнопки управления -->
+        <div class="controls">
+            <button onclick="toggleInfo()">ℹ️ Информация</button>
+            <button onclick="openOriginal()">🌐 Открыть оригинал</button>
+        </div>
+
+        <!-- Кнопка полноэкранного режима -->
+        <button class="fullscreen-btn" onclick="toggleFullscreen()">
+            🖥️ Полный экран
+        </button>
+    </div>
+
+    <script>
+        // Переключить информационную панель
+        function toggleInfo() {
+            const panel = document.querySelector('.info-panel');
+            if (panel.style.display === 'none') {
+                panel.style.display = 'block';
+            } else {
+                panel.style.display = 'none';
+            }
+        }
+
+        // Открыть оригинал в новой вкладке
+        function openOriginal() {
+            window.open('https://superspl.at/view?id=c67edb74', '_blank');
+        }
+
+        // Полноэкранный режим
+        function toggleFullscreen() {
+            const iframe = document.getElementById('splat-viewer');
+            
+            if (!document.fullscreenElement) {
+                if (iframe.requestFullscreen) {
+                    iframe.requestFullscreen();
+                } else if (iframe.webkitRequestFullscreen) {
+                    iframe.webkitRequestFullscreen();
+                } else if (iframe.mozRequestFullScreen) {
+                    iframe.mozRequestFullScreen();
+                }
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                }
+            }
+        }
+
+        // Логирование
+        console.log('%c🏰 Kefermarkt Church - SuperSplat Embed', 'color: #4CAF50; font-size: 20px; font-weight: bold;');
+        console.log('Встроенная версия SuperSplat');
+        console.log('Качество: Максимальное (оригинальный рендерер)');
+        console.log('Источник:', 'https://superspl.at/s?id=c67edb74');
+        console.log('Размер:', '155.56 MB (compressed PLY)');
+        
+        // Автоматически скрыть панель через 5 секунд
+        setTimeout(() => {
+            const panel = document.querySelector('.info-panel');
+            panel.style.transition = 'opacity 1s';
+            panel.style.opacity = '0';
+            setTimeout(() => {
+                panel.style.display = 'none';
+            }, 1000);
+        }, 5000);
+    </script>
+</body>
+</html>
+

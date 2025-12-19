@@ -1,0 +1,19 @@
+{
+  "timestamp": "2025-12-06T21:10:36.312716",
+  "title": "Резюме оптимизации Gaussian Splatting",
+  "analysis": {
+    "before": {
+      "total_files": 2,
+      "total_size_mb": 64.85064697265625,
+      "total_splats": 1000000,
+      "average_splats_per_mb": 15420.04662531188
+    },
+    "after": {
+      "total_size_mb": 64.85064697265625,
+      "estimated_optimized_size_mb": 58.36558227539063,
+      "savings_mb": 0.0,
+      "potential_savings_mb": 6.485064697265621,
+      "has_gsplat": false
+    }
+  }
+}

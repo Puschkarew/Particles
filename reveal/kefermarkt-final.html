@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kefermarkt Church - Оптимизированная версия</title>
+    <script src="https://code.playcanvas.com/playcanvas-stable.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            background: #1a1a1a;
+        }
+
+        #application {
+            width: 100vw;
+            height: 100vh;
+            display: block;
+        }
+
+        .ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 100;
+        }
+
+        .info-panel {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.85);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+            pointer-events: auto;
+            max-width: 350px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        }
+
+        .info-panel h1 {
+            font-size: 22px;
+            margin-bottom: 10px;
+            color: #4CAF50;
+        }
+
+        .info-panel p {
+            font-size: 13px;
+            line-height: 1.5;
+            margin-bottom: 10px;
+            color: #e0e0e0;
+        }
+
+        .controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+            pointer-events: auto;
+            max-width: 90%;
+        }
+
+        .controls button {
+            background: rgba(76, 175, 80, 0.95);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .controls button:hover {
+            background: rgba(76, 175, 80, 1);
+            transform: translateY(-2px);
+        }
+
+        .instructions {
+            position: absolute;
+            bottom: 80px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 12px;
+            border-radius: 8px;
+            backdrop-filter: blur(10px);
+            font-size: 12px;
+            pointer-events: auto;
+        }
+
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: white;
+            pointer-events: none;
+        }
+
+        .loading h2 {
+            font-size: 28px;
+            margin-bottom: 15px;
+        }
+
+        .loading-bar {
+            width: 300px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .loading-progress {
+            height: 100%;
+            background: linear-gradient(90deg, #4CAF50, #8BC34A);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .loading-text {
+            margin-top: 10px;
+            font-size: 13px;
+            color: #aaa;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        kbd {
+            background: #333;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: monospace;
+            border: 1px solid #555;
+        }
+
+        .badge {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(33, 150, 243, 0.95);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            pointer-events: auto;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="application"></canvas>
+    
+    <div class="ui-overlay">
+        <div class="badge">
+            ⚙️ Оптимизированная версия
+        </div>
+
+        <div class="info-panel">
+            <h1>Kefermarkt Church</h1>
+            <p>Позднеготическая церковь (1470). Знаменита крылатым алтарём XV века.</p>
+            <p style="font-size: 11px; color: #888; border-top: 1px solid #444; padding-top: 8px; margin-top: 8px;">
+                By Schindelar3D + Fotomento<br>
+                Gaussian Splatting • 155 MB
+            </p>
+        </div>
+
+        <div class="loading" id="loading">
+            <h2>Загрузка...</h2>
+            <div class="loading-bar">
+                <div class="loading-progress" id="progress"></div>
+            </div>
+            <div class="loading-text" id="loadingText">Инициализация...</div>
+        </div>
+
+        <div class="instructions">
+            <strong>Управление:</strong>
+            <kbd>ЛКМ</kbd> вращение •
+            <kbd>Колесо</kbd> зум •
+            <kbd>ПКМ</kbd> панорама
+        </div>
+
+        <div class="controls">
+            <button onclick="setView(1)">📸 Вид 1: Алтарь</button>
+            <button onclick="setView(2)">📸 Вид 2: Неф</button>
+            <button onclick="setView(3)">📸 Вид 3: Сбоку</button>
+            <button onclick="resetCamera()">🔄 Сброс</button>
+        </div>
+    </div>
+
+    <script>
+        let app, camera, gsplatEntity;
+        const SPLAT_URL = 'https://d28zzqy0iyovbz.cloudfront.net/c67edb74/v1/scene.compressed.ply';
+
+        // Предустановленные виды
+        const cameraViews = {
+            1: { pos: [0, 1.7, 3], lookAt: [0, 2, 0] },    // Вид на алтарь
+            2: { pos: [0, 2.5, -8], lookAt: [0, 1.5, 5] }, // Вид сзади
+            3: { pos: [5, 2, 0], lookAt: [0, 1.5, 0] }     // Вид сбоку
+        };
+
+        function initPlayCanvas() {
+            const canvas = document.getElementById('application');
+            
+            app = new pc.Application(canvas, {
+                mouse: new pc.Mouse(canvas),
+                touch: new pc.TouchDevice(canvas),
+                keyboard: new pc.Keyboard(window),
+                antialias: true,
+                depth: true,
+                stencil: true,
+                powerPreference: 'high-performance'
+            });
+
+            app.start();
+            app.setCanvasFillMode(pc.FILLMODE_FILL_WINDOW);
+            app.setCanvasResolution(pc.RESOLUTION_AUTO);
+
+            // Яркое освещение
+            app.scene.ambientLight = new pc.Color(0.8, 0.8, 0.8);
+            app.scene.skyboxIntensity = 1.0;
+            app.scene.ambientLuminance = 30000;
+
+            if (app.graphicsDevice.maxPixelRatio) {
+                app.graphicsDevice.maxPixelRatio = Math.min(window.devicePixelRatio, 2);
+            }
+
+            window.addEventListener('resize', () => app.resizeCanvas());
+
+            createScene();
+        }
+
+        function createScene() {
+            updateLoading(10, 'Создание камеры...');
+
+            // Камера
+            camera = new pc.Entity('camera');
+            camera.addComponent('camera', {
+                clearColor: new pc.Color(0.15, 0.15, 0.2),
+                farClip: 100,
+                nearClip: 0.01,
+                fov: 65
+            });
+            camera.setPosition(0, 1.7, 3);
+            camera.lookAt(0, 2, 0);
+            app.root.addChild(camera);
+
+            updateLoading(30, 'Настройка управления...');
+            setupOrbitCamera();
+
+            updateLoading(50, 'Загрузка Gaussian Splat...');
+            loadGaussianSplat();
+
+            // Множественное освещение
+            createLighting();
+        }
+
+        function setupOrbitCamera() {
+            let isDragging = false, isPanning = false;
+            let lastX = 0, lastY = 0;
+            let pitch = 0, yaw = 0, distance = 3;
+            let target = new pc.Vec3(0, 1.7, 0);
+
+            const canvas = document.getElementById('application');
+
+            canvas.addEventListener('mousedown', (e) => {
+                if (e.button === 0) isDragging = true;
+                if (e.button === 2) isPanning = true;
+                lastX = e.clientX;
+                lastY = e.clientY;
+                e.preventDefault();
+            });
+
+            canvas.addEventListener('mousemove', (e) => {
+                const deltaX = e.clientX - lastX;
+                const deltaY = e.clientY - lastY;
+
+                if (isDragging) {
+                    yaw -= deltaX * 0.3;
+                    pitch -= deltaY * 0.3;
+                    pitch = Math.max(-89, Math.min(89, pitch));
+                    updateCameraPosition();
+                } else if (isPanning) {
+                    const right = new pc.Vec3();
+                    const up = new pc.Vec3();
+                    camera.getWorldTransform().getX(right);
+                    camera.getWorldTransform().getY(up);
+                    
+                    right.mulScalar(-deltaX * 0.01);
+                    up.mulScalar(deltaY * 0.01);
+                    
+                    target.add(right).add(up);
+                    updateCameraPosition();
+                }
+
+                lastX = e.clientX;
+                lastY = e.clientY;
+            });
+
+            canvas.addEventListener('mouseup', () => {
+                isDragging = false;
+                isPanning = false;
+            });
+
+            canvas.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                distance += e.deltaY * 0.01;
+                distance = Math.max(0.5, Math.min(30, distance));
+                updateCameraPosition();
+            });
+
+            canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+            function updateCameraPosition() {
+                const pitchRad = pitch * Math.PI / 180;
+                const yawRad = yaw * Math.PI / 180;
+
+                const x = target.x + distance * Math.cos(pitchRad) * Math.sin(yawRad);
+                const y = target.y + distance * Math.sin(pitchRad);
+                const z = target.z + distance * Math.cos(pitchRad) * Math.cos(yawRad);
+
+                camera.setPosition(x, y, z);
+                camera.lookAt(target);
+            }
+
+            window.resetCamera = function() {
+                pitch = 0;
+                yaw = 0;
+                distance = 3;
+                target = new pc.Vec3(0, 1.7, 0);
+                updateCameraPosition();
+            };
+
+            window.setView = function(viewNum) {
+                const view = cameraViews[viewNum];
+                if (view) {
+                    camera.setPosition(view.pos[0], view.pos[1], view.pos[2]);
+                    camera.lookAt(view.lookAt[0], view.lookAt[1], view.lookAt[2]);
+                    
+                    // Обновить параметры орбиты
+                    const dir = new pc.Vec3();
+                    dir.sub2(camera.getPosition(), new pc.Vec3(...view.lookAt));
+                    distance = dir.length();
+                    target = new pc.Vec3(...view.lookAt);
+                    
+                    const forward = new pc.Vec3(0, 0, 1);
+                    yaw = Math.atan2(dir.x, dir.z) * 180 / Math.PI;
+                    pitch = Math.asin(dir.y / distance) * 180 / Math.PI;
+                }
+            };
+
+            updateCameraPosition();
+        }
+
+        function loadGaussianSplat() {
+            const asset = new pc.Asset('church', 'gsplat', {
+                url: SPLAT_URL
+            });
+
+            asset.on('load', () => {
+                console.log('✅ Gaussian Splat загружен!');
+                updateLoading(90, 'Создание сцены...');
+                
+                gsplatEntity = new pc.Entity('gaussian-splat');
+                gsplatEntity.addComponent('gsplat', {
+                    asset: asset
+                });
+                
+                gsplatEntity.setLocalScale(1, 1, 1);
+                app.root.addChild(gsplatEntity);
+                
+                setTimeout(() => {
+                    finishLoading();
+                    // Автоматически установить хороший вид
+                    setView(1);
+                }, 500);
+            });
+
+            asset.on('error', (err) => {
+                console.error('❌ Ошибка:', err);
+                updateLoading(0, 'Ошибка загрузки');
+            });
+
+            app.assets.add(asset);
+            app.assets.load(asset);
+        }
+
+        function createLighting() {
+            // Основной свет
+            const mainLight = new pc.Entity('main-light');
+            mainLight.addComponent('light', {
+                type: 'directional',
+                color: new pc.Color(1, 0.98, 0.95),
+                intensity: 1.5,
+                castShadows: false
+            });
+            mainLight.setEulerAngles(60, 30, 0);
+            app.root.addChild(mainLight);
+
+            // Заполняющий свет
+            const fillLight = new pc.Entity('fill-light');
+            fillLight.addComponent('light', {
+                type: 'directional',
+                color: new pc.Color(0.7, 0.75, 0.8),
+                intensity: 0.6,
+                castShadows: false
+            });
+            fillLight.setEulerAngles(-45, 180, 0);
+            app.root.addChild(fillLight);
+
+            // Задний свет
+            const backLight = new pc.Entity('back-light');
+            backLight.addComponent('light', {
+                type: 'directional',
+                color: new pc.Color(0.9, 0.9, 1),
+                intensity: 0.3,
+                castShadows: false
+            });
+            backLight.setEulerAngles(120, 0, 0);
+            app.root.addChild(backLight);
+        }
+
+        function updateLoading(percent, text) {
+            document.getElementById('progress').style.width = percent + '%';
+            document.getElementById('loadingText').textContent = text;
+        }
+
+        function finishLoading() {
+            updateLoading(100, 'Готово!');
+            setTimeout(() => {
+                document.getElementById('loading').classList.add('hidden');
+            }, 500);
+        }
+
+        window.addEventListener('DOMContentLoaded', initPlayCanvas);
+
+        console.log('%c🏰 Kefermarkt Church - Оптимизированная версия', 'color: #4CAF50; font-size: 18px; font-weight: bold;');
+        console.log('Источник:', SPLAT_URL);
+        console.log('Размер: 155.56 MB');
+    </script>
+</body>
+</html>
+

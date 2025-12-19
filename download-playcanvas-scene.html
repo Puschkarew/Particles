@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PlayCanvas Scene Downloader</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        .info {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .step {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f9f9f9;
+            border-left: 4px solid #4CAF50;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        #output {
+            background: #263238;
+            color: #aed581;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+            min-height: 100px;
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        .url-list {
+            background: #fff3e0;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .url-item {
+            padding: 5px;
+            margin: 5px 0;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        code {
+            background: #f5f5f5;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎮 Инструкция по извлечению PlayCanvas сцены</h1>
+        
+        <div class="info">
+            <strong>Сцена:</strong> Kefermarkt Church (Gaussian Splatting)<br>
+            <strong>URL:</strong> https://playcanv.as/p/Zp9Oh1ia/
+        </div>
+
+        <div class="step">
+            <h3>Шаг 1: Открыть DevTools</h3>
+            <p>1. Откройте <a href="https://playcanv.as/p/Zp9Oh1ia/" target="_blank">https://playcanv.as/p/Zp9Oh1ia/</a></p>
+            <p>2. Нажмите F12 или Ctrl+Shift+I (Cmd+Opt+I на Mac)</p>
+            <p>3. Перейдите на вкладку <strong>Network</strong> (Сеть)</p>
+            <p>4. Обновите страницу (F5)</p>
+        </div>
+
+        <div class="step">
+            <h3>Шаг 2: Найти файлы ресурсов</h3>
+            <p>В Network ищите файлы с расширениями:</p>
+            <ul>
+                <li><code>.sog</code> - Scene Organized Gaussian Splat</li>
+                <li><code>.ply</code> - Point Cloud данные</li>
+                <li><code>.json</code> - Конфигурация сцены</li>
+                <li><code>.glb</code> - 3D модели</li>
+            </ul>
+        </div>
+
+        <div class="step">
+            <h3>Шаг 3: Скачать файлы</h3>
+            <button onclick="analyzeNetwork()">Анализировать сеть</button>
+            <button onclick="copyUrls()">Скопировать URLs</button>
+            <div id="output">Нажмите "Анализировать сеть" для начала...</div>
+        </div>
+
+        <div class="step">
+            <h3>Шаг 4: Интеграция в ваш проект</h3>
+            <p>После скачивания файлов, используйте следующий код:</p>
+            <button onclick="generateCode()">Сгенерировать код интеграции</button>
+        </div>
+
+        <div class="url-list">
+            <h4>Известные URL ресурсов:</h4>
+            <div class="url-item">
+                Базовый путь: <code>https://playcanv.as/api/assets/files/</code>
+            </div>
+            <p><small>Точные URL появятся после анализа Network</small></p>
+        </div>
+    </div>
+
+    <script>
+        function analyzeNetwork() {
+            const output = document.getElementById('output');
+            output.textContent = `Инструкция по ручному извлечению:
+
+1. Откройте https://playcanv.as/p/Zp9Oh1ia/ в новой вкладке
+2. Откройте DevTools (F12)
+3. Перейдите на вкладку Network
+4. Обновите страницу
+5. В фильтре Network введите: .sog или .ply
+6. Найдите файлы Gaussian Splat
+7. Правый клик -> Copy -> Copy link address
+8. Откройте URL в новой вкладке для скачивания
+
+Типичные расширения файлов:
+- .sog - основной файл Gaussian Splat
+- .ply - облако точек
+- .json - метаданные сцены
+- .glb - дополнительные 3D модели`;
+        }
+
+        function copyUrls() {
+            const urls = `https://playcanv.as/p/Zp9Oh1ia/
+Базовый путь API: https://playcanv.as/api/assets/files/`;
+            
+            navigator.clipboard.writeText(urls).then(() => {
+                alert('URLs скопированы в буфер обмена!');
+            });
+        }
+
+        function generateCode() {
+            const code = `
+<!-- Интеграция PlayCanvas Gaussian Splatting -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Kefermarkt Church - Gaussian Splat</title>
+    <script src="https://code.playcanvas.com/playcanvas-stable.min.js"></script>
+    <style>
+        body { margin: 0; }
+        canvas { width: 100%; height: 100vh; }
+    </style>
+</head>
+<body>
+    <canvas id="application"></canvas>
+    <script>
+        // Создать приложение PlayCanvas
+        const canvas = document.getElementById('application');
+        const app = new pc.Application(canvas, {
+            mouse: new pc.Mouse(canvas),
+            touch: new pc.TouchDevice(canvas),
+            keyboard: new pc.Keyboard(window)
+        });
+        
+        app.start();
+        app.setCanvasFillMode(pc.FILLMODE_FILL_WINDOW);
+        app.setCanvasResolution(pc.RESOLUTION_AUTO);
+
+        // Настроить сцену
+        app.scene.ambientLight = new pc.Color(0.4, 0.4, 0.4);
+
+        // Создать камеру
+        const camera = new pc.Entity('camera');
+        camera.addComponent('camera', {
+            clearColor: new pc.Color(0.1, 0.1, 0.1)
+        });
+        camera.setPosition(0, 1, 5);
+        app.root.addChild(camera);
+
+        // Добавить управление камерой
+        camera.addComponent('script');
+        camera.script.create('orbitCamera', {
+            attributes: {
+                inertiaFactor: 0.2,
+                distanceMax: 10,
+                frameOnStart: true
+            }
+        });
+
+        // Создать entity для Gaussian Splat
+        const gsplatEntity = new pc.Entity('gaussian-splat');
+        
+        // Добавить компонент gsplat
+        gsplatEntity.addComponent('gsplat', {
+            // Замените URL на ваш скачанный файл
+            asset: 'path/to/your/downloaded.sog'
+        });
+        
+        app.root.addChild(gsplatEntity);
+
+        // Добавить свет
+        const light = new pc.Entity('light');
+        light.addComponent('light', {
+            type: 'directional',
+            color: new pc.Color(1, 1, 1),
+            intensity: 1
+        });
+        light.setEulerAngles(45, 45, 0);
+        app.root.addChild(light);
+    </script>
+</body>
+</html>`;
+            
+            const output = document.getElementById('output');
+            output.textContent = code;
+            
+            // Копировать в буфер обмена
+            navigator.clipboard.writeText(code).then(() => {
+                alert('Код скопирован в буфер обмена! Сохраните его в HTML файл.');
+            });
+        }
+    </script>
+</body>
+</html>
+

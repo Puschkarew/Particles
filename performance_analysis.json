@@ -1,0 +1,173 @@
+{
+  "timestamp": "2025-12-06T21:09:42.915052",
+  "files": {
+    "Ceramic.ply": {
+      "file_size_mb": 32.425323486328125,
+      "num_splats": 500000,
+      "theoretical_size_mb": 32.4249267578125,
+      "overhead_mb": 0.000396728515625,
+      "overhead_percent": 0.0012235144417056545,
+      "num_properties": 17,
+      "properties": [
+        {
+          "type": "float",
+          "name": "x"
+        },
+        {
+          "type": "float",
+          "name": "y"
+        },
+        {
+          "type": "float",
+          "name": "z"
+        },
+        {
+          "type": "float",
+          "name": "nx"
+        },
+        {
+          "type": "float",
+          "name": "ny"
+        },
+        {
+          "type": "float",
+          "name": "nz"
+        },
+        {
+          "type": "float",
+          "name": "f_dc_0"
+        },
+        {
+          "type": "float",
+          "name": "f_dc_1"
+        },
+        {
+          "type": "float",
+          "name": "f_dc_2"
+        },
+        {
+          "type": "float",
+          "name": "opacity"
+        },
+        {
+          "type": "float",
+          "name": "scale_0"
+        },
+        {
+          "type": "float",
+          "name": "scale_1"
+        },
+        {
+          "type": "float",
+          "name": "scale_2"
+        },
+        {
+          "type": "float",
+          "name": "rot_0"
+        },
+        {
+          "type": "float",
+          "name": "rot_1"
+        },
+        {
+          "type": "float",
+          "name": "rot_2"
+        },
+        {
+          "type": "float",
+          "name": "rot_3"
+        }
+      ],
+      "estimated_load_time_slow_mbps": 3.2425323486328126,
+      "estimated_load_time_fast_mbps": 0.3242532348632812,
+      "splats_per_mb": 15420.04662531188
+    },
+    "Future.ply": {
+      "file_size_mb": 32.425323486328125,
+      "num_splats": 500000,
+      "theoretical_size_mb": 32.4249267578125,
+      "overhead_mb": 0.000396728515625,
+      "overhead_percent": 0.0012235144417056545,
+      "num_properties": 17,
+      "properties": [
+        {
+          "type": "float",
+          "name": "x"
+        },
+        {
+          "type": "float",
+          "name": "y"
+        },
+        {
+          "type": "float",
+          "name": "z"
+        },
+        {
+          "type": "float",
+          "name": "nx"
+        },
+        {
+          "type": "float",
+          "name": "ny"
+        },
+        {
+          "type": "float",
+          "name": "nz"
+        },
+        {
+          "type": "float",
+          "name": "f_dc_0"
+        },
+        {
+          "type": "float",
+          "name": "f_dc_1"
+        },
+        {
+          "type": "float",
+          "name": "f_dc_2"
+        },
+        {
+          "type": "float",
+          "name": "opacity"
+        },
+        {
+          "type": "float",
+          "name": "scale_0"
+        },
+        {
+          "type": "float",
+          "name": "scale_1"
+        },
+        {
+          "type": "float",
+          "name": "scale_2"
+        },
+        {
+          "type": "float",
+          "name": "rot_0"
+        },
+        {
+          "type": "float",
+          "name": "rot_1"
+        },
+        {
+          "type": "float",
+          "name": "rot_2"
+        },
+        {
+          "type": "float",
+          "name": "rot_3"
+        }
+      ],
+      "estimated_load_time_slow_mbps": 3.2425323486328126,
+      "estimated_load_time_fast_mbps": 0.3242532348632812,
+      "splats_per_mb": 15420.04662531188
+    }
+  },
+  "summary": {
+    "total_files": 2,
+    "total_size_mb": 64.85064697265625,
+    "total_splats": 1000000,
+    "average_splats_per_mb": 15420.04662531188
+  }
+}

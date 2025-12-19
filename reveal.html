@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+    <title>Gaussian Splatting Reveal - Future, Ceramic, Room</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #000;
+        }
+
+        #app {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+
+        #appInner {
+            width: 100%;
+            height: 100%;
+        }
+
+        #application-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+    </style>
+    <link rel="stylesheet" href="./engine/examples/dist/iframe/main.css" />
+</head>
+<body>
+    <div id="app">
+        <div id="appInner">
+            <canvas id="application-canvas"></canvas>
+        </div>
+    </div>
+    <script src="./engine/examples/dist/iframe/polyfill.js"></script>
+    <script type="importmap">
+        {
+            "imports": {
+                "playcanvas": "./engine/examples/dist/iframe/playcanvas.mjs",
+                "fflate": "./engine/examples/dist/modules/fflate/esm/browser.js",
+                "examples/utils": "./engine/examples/dist/iframe/utils.mjs",
+                "examples/observer": "./engine/examples/dist/iframe/observer.mjs",
+                "examples/files": "./engine/examples/dist/iframe/files.mjs"
+            }
+        }
+    </script>
+    <script type="module">
+        import { ExampleLoader } from './engine/examples/dist/iframe/loader.mjs';
+        import { data } from './engine/examples/dist/iframe/observer.mjs';
+        
+        const loader = new ExampleLoader();
+
+        Object.defineProperty(window, 'ready', { get: () => loader.ready });
+
+        window.addEventListener('requestFiles', () => loader.sendRequestedFiles());
+        window.addEventListener('stats', (event) => loader.setMiniStats(!!event.detail?.state));
+        window.addEventListener('hotReload', () => loader.hotReload());
+        window.addEventListener('destroy', () => loader.destroy());
+        window.addEventListener('beforeunload', () => loader.exit(), false);
+
+        // Initialize controls when example loads
+        window.addEventListener('exampleLoad', async (event) => {
+            const { observer } = event.detail;
+            if (observer && !document.getElementById('controlPanel-controls')) {
+                try {
+                    const { controls } = await import('./engine/examples/dist/iframe/gaussian-splatting_reveal.controls.mjs');
+                    if (controls) {
+                        controls({ observer });
+                    }
+                } catch (e) {
+                    console.error('Failed to load controls:', e);
+                }
+            }
+        });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loader.start({
+                engineUrl: "./engine/examples/dist/iframe/playcanvas.mjs",
+                fileNames: ["controls.mjs","example.mjs"],
+            });
+        });
+    </script>
+</body>
+</html>
+
+
