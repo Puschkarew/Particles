@@ -8,7 +8,7 @@
  */
 
 // Build version for tracking (must match version in reveal.example.mjs)
-const BUILD_VERSION = 'v1.4.9';
+const BUILD_VERSION = 'v1.5.0';
 
 export const controls = ({ observer, React, jsx }) => {
     
@@ -209,6 +209,14 @@ function createControls(observer, GUI) {
         title: '',
         width: 420
     });
+    
+    // Add build version at the top (first item) for visibility
+    const buildInfoTop = {
+        build: BUILD_VERSION
+    };
+    gui.add(buildInfoTop, 'build')
+        .name('Build')
+        .disable(); // Make it read-only
 
     // Create parameters object that syncs with observer
     const params = {
@@ -338,134 +346,142 @@ function createControls(observer, GUI) {
     // ==========================================
     const sceneFolder = gui.addFolder('Scene');
     
-    // Get available scenes from observer (set by example)
-    // Always use fallback list with all scenes including "The Bull" and "Cluster Fly XXL"
-    // Observer may not have the full list yet when controls initialize
-    const fallbackScenes = [
-        { name: 'Future', id: 'future' },
-        { name: 'Ceramic', id: 'ceramic' },
-        { name: 'Room', id: 'room' },
-        { name: 'The Bull', id: 'the_bull' },
-        { name: 'Cluster Fly XXL', id: 'cluster_fly_xxl' },
-        { name: 'Bull 06 Selection', id: 'bull_06' },
-        { name: 'Bull2', id: 'bull2' }
-    ];
+    // Scenes state - populated from API
+    /** @type {Array<{name: string, id: string}>} */
+    let availableScenes = [];
+    /** @type {string[]} */
+    let sceneNames = [];
+    /** @type {string[]} */
+    let sceneIds = [];
     
-    let observerScenes = observer.get('availableScenes');
-    console.log(`[Build ${BUILD_VERSION}] Raw scenes from observer:`, observerScenes);
-    if (observerScenes && Array.isArray(observerScenes)) {
-        console.log(`[Build ${BUILD_VERSION}] Observer scenes array:`, JSON.stringify(observerScenes, null, 2));
-        console.log(`[Build ${BUILD_VERSION}] Observer scenes count:`, observerScenes.length);
-        observerScenes.forEach((scene, index) => {
-            console.log(`[Build ${BUILD_VERSION}] Scene ${index}:`, scene);
-        });
-    }
-    
-    // ALWAYS use fallback scenes to ensure all scenes are available
-    // Observer may not have the full list or may be filtered
-    let availableScenes = fallbackScenes;
-    console.log(`[Build ${BUILD_VERSION}] Using fallback scenes (always 7):`, availableScenes);
-    console.log(`[Build ${BUILD_VERSION}] Scenes count:`, availableScenes.length, 'expected: 7');
-    
-    // Create scene names array for dropdown
-    let sceneNames = availableScenes.map(s => s.name);
-    let sceneIds = availableScenes.map(s => s.id);
-    
-    // Get current scene ID from observer
-    const currentSceneId = observer.get('currentSceneId') || 'future';
-    const currentSceneIndex = sceneIds.indexOf(currentSceneId);
-    const currentSceneName = currentSceneIndex >= 0 ? sceneNames[currentSceneIndex] : sceneNames[0];
-    
-    // Create params object for scene selection
+    // Create params object for scene selection (initialized with placeholder)
     const sceneParams = {
-        currentScene: currentSceneName
+        currentScene: 'Loading...'
     };
     
-    // Create dropdown for scene selection
-    let sceneController = sceneFolder.add(sceneParams, 'currentScene', sceneNames)
+    // Create placeholder dropdown that will be replaced
+    let sceneController = sceneFolder.add(sceneParams, 'currentScene', ['Loading...'])
         .name('Scene')
-        .onChange((value) => {
-            const selectedIndex = sceneNames.indexOf(value);
-            if (selectedIndex >= 0) {
-                const selectedSceneId = sceneIds[selectedIndex];
-                observer.emit('changeScene', selectedSceneId);
-            }
-        });
+        .disable(); // Disable until scenes are loaded
     
-    // Function to update scene dropdown
-    const updateSceneDropdown = (newScenes) => {
-        if (!newScenes || !Array.isArray(newScenes) || newScenes.length === 0) {
-            return;
-        }
-        
-        // Check if scenes actually changed
-        const scenesChanged = newScenes.length !== availableScenes.length || 
-            newScenes.some((scene, index) => 
-                !availableScenes[index] || 
-                scene.id !== availableScenes[index].id || 
-                scene.name !== availableScenes[index].name
+    /**
+     * Fetches scenes from API and rebuilds the dropdown
+     * @param {boolean} forceRefresh - If true, bypasses cache
+     */
+    const fetchAndUpdateScenes = async (forceRefresh = false) => {
+        try {
+            const url = forceRefresh 
+                ? `/api/scenes?ts=${Date.now()}`
+                : '/api/scenes';
+            
+            console.log(`[Build ${BUILD_VERSION}] Fetching scenes from API: ${url}`);
+            
+            const response = await fetch(url, { 
+                cache: forceRefresh ? 'no-store' : 'default'
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const apiResponse = await response.json();
+            // API returns { scenes: [...] } format
+            const apiScenes = apiResponse.scenes || (Array.isArray(apiResponse) ? apiResponse : []);
+            console.log(`[Build ${BUILD_VERSION}] API returned ${apiScenes.length} scenes:`, apiScenes);
+            
+            if (!Array.isArray(apiScenes) || apiScenes.length === 0) {
+                console.warn(`[Build ${BUILD_VERSION}] API returned empty or invalid scenes array`);
+                return;
+            }
+            
+            // Validate scene objects have required fields
+            const validScenes = apiScenes.filter(scene => 
+                scene && typeof scene.id === 'string' && typeof scene.name === 'string'
             );
-        
-        if (scenesChanged) {
-            console.log(`[Build ${BUILD_VERSION}] Updating scene dropdown with:`, newScenes);
-            availableScenes = newScenes;
+            
+            if (validScenes.length === 0) {
+                console.warn(`[Build ${BUILD_VERSION}] No valid scenes found in API response`);
+                return;
+            }
+            
+            console.log(`[Build ${BUILD_VERSION}] Valid scenes count: ${validScenes.length}`);
+            
+            // Update scenes state
+            availableScenes = validScenes;
             sceneNames = availableScenes.map(s => s.name);
             sceneIds = availableScenes.map(s => s.id);
-            // Recreate controller with updated options
-            const currentValue = sceneParams.currentScene;
-            // Remove old controller - use destroy() method if available, otherwise remove from DOM
-            if (sceneController && typeof sceneController.destroy === 'function') {
-                sceneController.destroy();
-            } else if (sceneController && sceneController.domElement && sceneController.domElement.parentNode) {
-                sceneController.domElement.parentNode.removeChild(sceneController.domElement);
+            
+            // Get current scene ID from observer
+            const currentSceneId = observer.get('currentSceneId');
+            const currentSceneIndex = currentSceneId ? sceneIds.indexOf(currentSceneId) : -1;
+            
+            // Determine selected scene: use current if valid, otherwise first scene
+            let selectedSceneName;
+            let shouldEmitChange = false;
+            if (currentSceneIndex >= 0) {
+                selectedSceneName = sceneNames[currentSceneIndex];
+            } else {
+                // Current scene no longer exists, fall back to first scene
+                selectedSceneName = sceneNames[0];
+                if (sceneIds.length > 0) {
+                    observer.set('currentSceneId', sceneIds[0]);
+                    shouldEmitChange = true; // Emit change to load the fallback scene
+                }
             }
-            sceneParams.currentScene = currentValue;
-            const newController = sceneFolder.add(sceneParams, 'currentScene', sceneNames)
+            
+            // Destroy old controller
+            if (sceneController) {
+                if (typeof sceneController.destroy === 'function') {
+                    sceneController.destroy();
+                } else if (sceneController.domElement && sceneController.domElement.parentNode) {
+                    sceneController.domElement.parentNode.removeChild(sceneController.domElement);
+                }
+            }
+            
+            // Update params with selected scene
+            sceneParams.currentScene = selectedSceneName;
+            
+            // Create new controller with API scenes
+            sceneController = sceneFolder.add(sceneParams, 'currentScene', sceneNames)
                 .name('Scene')
-                .onChange((value) => {
+                .onChange(/** @param {string} value */ (value) => {
                     const selectedIndex = sceneNames.indexOf(value);
                     if (selectedIndex >= 0) {
                         const selectedSceneId = sceneIds[selectedIndex];
+                        observer.set('currentSceneId', selectedSceneId);
                         observer.emit('changeScene', selectedSceneId);
                     }
                 });
-            // Store reference for future updates
-            sceneController = newController;
+            
+            // Re-enable the controller
+            sceneController.enable();
+            
+            // If we had to fall back to a different scene, emit change event to load it
+            if (shouldEmitChange && sceneIds.length > 0) {
+                observer.emit('changeScene', sceneIds[0]);
+            }
+            
+            console.log(`[Build ${BUILD_VERSION}] Scene dropdown updated with ${sceneNames.length} scenes`);
+            
+        } catch (error) {
+            console.error(`[Build ${BUILD_VERSION}] Error fetching scenes from API:`, error);
+            // Keep existing scenes if fetch fails, but show error
+            if (availableScenes.length === 0) {
+                sceneParams.currentScene = 'Error loading scenes';
+                sceneController.updateDisplay();
+            }
         }
     };
     
-    // Check for available scenes update multiple times with increasing delays
-    // (in case example sets them asynchronously after assets load)
-    [500, 1000, 2000, 3000].forEach(delay => {
-        setTimeout(() => {
-            const updatedScenes = observer.get('availableScenes');
-            if (updatedScenes && Array.isArray(updatedScenes)) {
-                console.log(`[Build ${BUILD_VERSION}] Checking scenes after ${delay}ms:`, updatedScenes, 'count:', updatedScenes.length);
-                if (updatedScenes.length >= 7) {
-                    console.log(`[Build ${BUILD_VERSION}] Found 7+ scenes, updating dropdown!`);
-                    updateSceneDropdown(updatedScenes);
-                }
-            }
-        }, delay);
-    });
+    // Fetch scenes on initialization
+    fetchAndUpdateScenes(false);
     
-    // Also listen for direct changes
-    observer.on('availableScenes:set', (newScenes) => {
-        console.log(`[Build ${BUILD_VERSION}] Available scenes updated via event:`, newScenes);
-        updateSceneDropdown(newScenes);
-    });
-    
-    // Update dropdown when scene changes externally
-    observer.on('sceneChanged', (sceneId) => {
-        const sceneIndex = sceneIds.indexOf(sceneId);
-        if (sceneIndex >= 0 && sceneParams.currentScene !== sceneNames[sceneIndex]) {
-            sceneParams.currentScene = sceneNames[sceneIndex];
-            sceneController.updateDisplay();
-        }
-    });
-    
-    // Add "Load Full Scene" button
+    // Add "Refresh Scenes" button
     const sceneActions = {
+        refreshScenes: () => {
+            console.log(`[Build ${BUILD_VERSION}] Refresh Scenes button clicked`);
+            fetchAndUpdateScenes(true); // Force refresh with cache bypass
+        },
         loadFullScene: () => {
             observer.emit('loadFullScene');
         },
@@ -473,6 +489,52 @@ function createControls(observer, GUI) {
             observer.emit('hideScene');
         }
     };
+    sceneFolder.add(sceneActions, 'refreshScenes').name('Refresh Scenes');
+    
+    // Update dropdown when scene changes externally
+    observer.on('sceneChanged', /** @param {string} sceneId */ (sceneId) => {
+        const sceneIndex = sceneIds.indexOf(sceneId);
+        if (sceneIndex >= 0 && sceneParams.currentScene !== sceneNames[sceneIndex]) {
+            sceneParams.currentScene = sceneNames[sceneIndex];
+            if (sceneController) {
+                sceneController.updateDisplay();
+            }
+        }
+    });
+    
+    // Handle scene load errors
+    observer.on('sceneLoadError', /** @param {object} errorInfo */ (errorInfo) => {
+        const { sceneId, sceneName, url, error, availableScenes: availScenes } = errorInfo;
+        const errorMsg = `Failed to load scene "${sceneName || sceneId}": ${error}`;
+        console.error(`[Build ${BUILD_VERSION}] ❌ ${errorMsg}`, errorInfo);
+        
+        // Show error in UI if possible (could add error display element)
+        if (sceneController) {
+            // Try to reset to a valid scene if current selection failed
+            const currentSceneName = sceneParams.currentScene;
+            if (currentSceneName === (sceneName || sceneId)) {
+                // Current selection failed, try to select first available scene
+                if (sceneNames.length > 0 && sceneNames[0] !== currentSceneName) {
+                    console.warn(`[Build ${BUILD_VERSION}] Resetting to first available scene: ${sceneNames[0]}`);
+                    sceneParams.currentScene = sceneNames[0];
+                    sceneController.updateDisplay();
+                    if (sceneIds.length > 0) {
+                        observer.set('currentSceneId', sceneIds[0]);
+                        observer.emit('changeScene', sceneIds[0]);
+                    }
+                }
+            }
+        }
+        
+        // Log detailed error information
+        if (url) {
+            console.error(`[Build ${BUILD_VERSION}] Requested URL: ${url}`);
+        }
+        if (availScenes && availScenes.length > 0) {
+            console.error(`[Build ${BUILD_VERSION}] Available scenes:`, availScenes);
+        }
+    });
+    
     sceneFolder.add(sceneActions, 'loadFullScene').name('Load Full Scene');
     sceneFolder.add(sceneActions, 'hideScene').name('Hide Scene');
     

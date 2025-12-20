@@ -7,7 +7,7 @@ import { loadSettings, saveSettings, initializeAutoSave, SETTINGS_KEYS } from '.
 import { applySettingsToRadialScript, createRadialScript, createRainScript, createGridScript, createEffect, getOrCreateBoxEffect } from './script-factory.mjs';
 
 // Build version for tracking (must match version in reveal.controls.mjs)
-const BUILD_VERSION = 'v1.4.9';
+const BUILD_VERSION = 'v1.5.0';
 
 const { GsplatRevealRadial } = await fileImport(`${rootPath}/static/scripts/esm/gsplat/reveal-radial.mjs`);
 const { GsplatRevealRain } = await fileImport(`${rootPath}/static/scripts/esm/gsplat/reveal-rain.mjs`);
@@ -55,22 +55,72 @@ app.on('destroy', () => {
     window.removeEventListener('resize', resize);
 });
 
-// Use scene configuration from module
-const availableScenes = AVAILABLE_SCENES;
+// Fetch scenes from API dynamically instead of using hardcoded list
+let availableScenes = []; // Will be populated from API
+let sceneInfoMap = new Map(); // Maps sceneId -> {id, name, url, filename}
+const assets = {}; // Assets will be created dynamically
 
-// Set available scenes in observer EARLY, before assets load
-// This ensures controls can see all scenes immediately
-const scenesForObserver = getScenesForObserver();
-console.log(`[Build ${BUILD_VERSION}] Available scenes array (source):`, availableScenes);
-console.log(`[Build ${BUILD_VERSION}] Scenes for observer (mapped):`, scenesForObserver);
-console.log(`[Build ${BUILD_VERSION}] Setting available scenes EARLY, count:`, scenesForObserver.length, 'expected: 10');
-data.set('availableScenes', scenesForObserver);
-// Immediately verify
-const verifyEarly = data.get('availableScenes');
-console.log(`[Build ${BUILD_VERSION}] Verified EARLY scenes in observer:`, verifyEarly, 'count:', verifyEarly?.length);
+// Fetch scenes from API
+async function fetchScenesFromAPI() {
+    try {
+        console.log(`[Build ${BUILD_VERSION}] Fetching scenes from API...`);
+        const response = await fetch('/api/scenes');
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const apiResponse = await response.json();
+        const apiScenes = apiResponse.scenes || (Array.isArray(apiResponse) ? apiResponse : []);
+        
+        if (!Array.isArray(apiScenes) || apiScenes.length === 0) {
+            throw new Error('API returned empty or invalid scenes array');
+        }
+        
+        // Build scene info map and available scenes array
+        availableScenes = apiScenes;
+        sceneInfoMap.clear();
+        apiScenes.forEach(scene => {
+            if (scene && scene.id && scene.name && scene.url) {
+                sceneInfoMap.set(scene.id, {
+                    id: scene.id,
+                    name: scene.name,
+                    url: scene.url,
+                    filename: scene.filename || ''
+                });
+            }
+        });
+        
+        // Format for observer (used by controls)
+        const scenesForObserver = apiScenes.map(s => ({ name: s.name, id: s.id }));
+        data.set('availableScenes', scenesForObserver);
+        
+        console.log(`[Build ${BUILD_VERSION}] Loaded ${availableScenes.length} scenes from API:`, availableScenes.map(s => s.name));
+        return true;
+    } catch (error) {
+        console.error(`[Build ${BUILD_VERSION}] Failed to fetch scenes from API:`, error);
+        // Fallback to hardcoded scenes if API fails
+        console.warn(`[Build ${BUILD_VERSION}] Falling back to hardcoded scene configuration`);
+        availableScenes = AVAILABLE_SCENES;
+        const scenesForObserver = getScenesForObserver();
+        data.set('availableScenes', scenesForObserver);
+        // Build scene info map from hardcoded scenes
+        availableScenes.forEach(scene => {
+            sceneInfoMap.set(scene.id, {
+                id: scene.id,
+                name: scene.name,
+                url: `${rootPath}/static/assets/splats/${scene.plyFile}`,
+                filename: scene.plyFile
+            });
+        });
+        return false;
+    }
+}
 
-// Create assets for all scenes using module function
-const assets = createSceneAssets(rootPath);
+// Wait for API scenes to load before initializing
+await fetchScenesFromAPI();
+
+// Create initial assets for scenes that exist in hardcoded config (for backward compatibility)
+const initialAssets = createSceneAssets(rootPath);
+Object.assign(assets, initialAssets);
 
 const assetListLoader = new pc.AssetListLoader(Object.values(assets), app.assets);
 assetListLoader.load(() => {
@@ -126,51 +176,137 @@ assetListLoader.load(() => {
     // Initialize auto-save functionality
     initializeAutoSave(data, savedSettings);
 
-    // Current scene tracking
-    let currentSceneId = 'future'; // ID of currently active scene
+    // Current scene tracking - use first available scene or 'future' as fallback
+    let currentSceneId = 'future'; // Default, will be updated if API provides scenes
+    if (availableScenes.length > 0) {
+        currentSceneId = availableScenes[0].id;
+        console.log(`[Build ${BUILD_VERSION}] Using first scene from API as initial scene: ${currentSceneId}`);
+    }
     
     // Store scene entities by their ID
     const sceneEntities = {};
     
-    // Create initial scene (Future)
-    const createSceneEntity = (sceneId) => {
-        const sceneConfig = availableScenes.find(s => s.id === sceneId);
-        if (!sceneConfig) {
-            console.error(`Scene with id "${sceneId}" not found`);
+    /**
+     * Create or get asset for a scene, creating it dynamically if needed
+     * @param {string} sceneId - The scene ID
+     * @returns {pc.Asset|null} The asset, or null if scene not found
+     */
+    const getOrCreateAsset = (sceneId) => {
+        // Check if asset already exists
+        if (assets[sceneId]) {
+            return assets[sceneId];
+        }
+        
+        // Get scene info from map
+        const sceneInfo = sceneInfoMap.get(sceneId);
+        if (!sceneInfo) {
+            console.error(`[Build ${BUILD_VERSION}] Scene with id "${sceneId}" not found in scene info map`);
+            console.error(`[Build ${BUILD_VERSION}] Available scene IDs:`, Array.from(sceneInfoMap.keys()));
             return null;
         }
         
-        const asset = assets[sceneId];
-        if (!asset) {
-            console.error(`Asset for scene "${sceneId}" not found`);
-            return null;
-        }
-        
-        const entity = new pc.Entity(`scene-${sceneId}`);
-        // Disable entity BEFORE adding to root to prevent any rendering before it's ready
-        entity.enabled = false;
-        entity.addComponent('gsplat', {
-            asset: asset,
-            unified: true
+        // Create asset dynamically using URL from API
+        console.log(`[Build ${BUILD_VERSION}] Creating asset dynamically for scene "${sceneId}" with URL: ${sceneInfo.url}`);
+        const asset = new pc.Asset(`gsplat-${sceneId}`, 'gsplat', { 
+            url: sceneInfo.url 
         });
-        entity.setLocalEulerAngles(180, 0, 0);
-        entity.addComponent('script');
-        app.root.addChild(entity);
         
-        return entity;
+        // Register asset
+        assets[sceneId] = asset;
+        app.assets.add(asset);
+        
+        return asset;
     };
     
-    // Create initial scene (Future - will be enabled)
-    const scene1 = createSceneEntity('future');
-    scene1.enabled = true; // Enable Future scene as initial active scene
-    sceneEntities['future'] = scene1;
+    /**
+     * Create a scene entity for the given scene ID
+     * @param {string} sceneId - The scene ID
+     * @returns {pc.Entity|null} The created entity, or null if failed
+     */
+    const createSceneEntity = (sceneId) => {
+        // Get scene info for validation
+        const sceneInfo = sceneInfoMap.get(sceneId);
+        if (!sceneInfo) {
+            const errorMsg = `[Build ${BUILD_VERSION}] ❌ Scene with id "${sceneId}" not found`;
+            console.error(errorMsg);
+            console.error(`[Build ${BUILD_VERSION}] Available scene IDs:`, Array.from(sceneInfoMap.keys()));
+            data.emit('sceneLoadError', {
+                sceneId,
+                error: 'Scene not found',
+                availableScenes: Array.from(sceneInfoMap.keys())
+            });
+            return null;
+        }
+        
+        // Get or create asset
+        const asset = getOrCreateAsset(sceneId);
+        if (!asset) {
+            const errorMsg = `[Build ${BUILD_VERSION}] ❌ Failed to create asset for scene "${sceneId}"`;
+            console.error(errorMsg);
+            data.emit('sceneLoadError', {
+                sceneId,
+                sceneName: sceneInfo.name,
+                url: sceneInfo.url,
+                error: 'Asset creation failed'
+            });
+            return null;
+        }
+        
+        // Check if asset is loaded
+        if (!asset.resource) {
+            console.warn(`[Build ${BUILD_VERSION}] ⚠️ Asset for scene "${sceneId}" is not yet loaded, entity may not render correctly`);
+            // Asset will be loaded asynchronously, but we can still create the entity
+        }
+        
+        try {
+            const entity = new pc.Entity(`scene-${sceneId}`);
+            // Disable entity BEFORE adding to root to prevent any rendering before it's ready
+            entity.enabled = false;
+            entity.addComponent('gsplat', {
+                asset: asset,
+                unified: true
+            });
+            entity.setLocalEulerAngles(180, 0, 0);
+            entity.addComponent('script');
+            app.root.addChild(entity);
+            
+            console.log(`[Build ${BUILD_VERSION}] ✅ Created scene entity for "${sceneId}" (${sceneInfo.name})`);
+            return entity;
+        } catch (error) {
+            const errorMsg = `[Build ${BUILD_VERSION}] ❌ Failed to create entity for scene "${sceneId}": ${error.message}`;
+            console.error(errorMsg, error);
+            data.emit('sceneLoadError', {
+                sceneId,
+                sceneName: sceneInfo.name,
+                url: sceneInfo.url,
+                error: error.message,
+                stack: error.stack
+            });
+            return null;
+        }
+    };
     
-    // Create second scene for transitions (initially hidden)
-    const scene2 = createSceneEntity('ceramic');
-    scene2.renderOrder = 1;
-    // scene2 is already disabled from createSceneEntity, but ensure it stays disabled
-    scene2.enabled = false;
-    sceneEntities['ceramic'] = scene2;
+    // Create initial scene (will be enabled)
+    const scene1 = createSceneEntity(currentSceneId);
+    if (!scene1) {
+        console.error(`[Build ${BUILD_VERSION}] ❌ Failed to create initial scene "${currentSceneId}"`);
+        // Try to fall back to any available scene
+        if (availableScenes.length > 1) {
+            const fallbackId = availableScenes[1].id;
+            console.warn(`[Build ${BUILD_VERSION}] Attempting fallback to scene: ${fallbackId}`);
+            const fallbackScene = createSceneEntity(fallbackId);
+            if (fallbackScene) {
+                currentSceneId = fallbackId;
+                fallbackScene.enabled = true;
+                sceneEntities[currentSceneId] = fallbackScene;
+                console.log(`[Build ${BUILD_VERSION}] ✅ Fallback scene "${currentSceneId}" created and enabled`);
+            }
+        }
+    } else {
+        scene1.enabled = true; // Enable initial scene
+        sceneEntities[currentSceneId] = scene1;
+        console.log(`[Build ${BUILD_VERSION}] ✅ Initial scene "${currentSceneId}" created and enabled`);
+    }
     
     // Keep reference to current scene for backward compatibility
     const hotel = scene1;
@@ -180,21 +316,75 @@ assetListLoader.load(() => {
 
     // Variables for scene transition
     let scene1Script = null;
-    let scene2Script = null;
     let transitionStarted = false;
     let currentActiveScene = scene1; // Track which scene is currently active
-    let nextScene = scene2; // Track which scene will be shown next
+    let nextScene = null; // Track which scene will be shown next (will be set during transition)
     
     // Function to change to a specific scene
     const changeToScene = (targetSceneId) => {
         if (transitionStarted) {
-            console.warn('Transition already in progress, ignoring request');
+            console.warn(`[Build ${BUILD_VERSION}] ⚠️ Transition already in progress, ignoring scene change request to "${targetSceneId}"`);
             return;
         }
         
         if (targetSceneId === currentSceneId) {
-            console.log(`Already on scene "${targetSceneId}"`);
+            console.log(`[Build ${BUILD_VERSION}] ℹ️ Already on scene "${targetSceneId}"`);
             return;
+        }
+        
+        // Validate scene exists
+        const sceneInfo = sceneInfoMap.get(targetSceneId);
+        if (!sceneInfo) {
+            const errorMsg = `[Build ${BUILD_VERSION}] ❌ Scene change failed: Scene "${targetSceneId}" not found`;
+            console.error(errorMsg);
+            console.error(`[Build ${BUILD_VERSION}] Available scene IDs:`, Array.from(sceneInfoMap.keys()));
+            data.emit('sceneLoadError', {
+                sceneId: targetSceneId,
+                error: 'Scene not found in scene info map',
+                availableScenes: Array.from(sceneInfoMap.keys())
+            });
+            return;
+        }
+        
+        console.log(`[Build ${BUILD_VERSION}] 🎬 Changing to scene "${targetSceneId}" (${sceneInfo.name})`);
+        
+        // Get or create asset and ensure it's loaded
+        const asset = getOrCreateAsset(targetSceneId);
+        if (!asset) {
+            const errorMsg = `[Build ${BUILD_VERSION}] ❌ Scene change failed: Could not get/create asset for "${targetSceneId}"`;
+            console.error(errorMsg);
+            data.emit('sceneLoadError', {
+                sceneId: targetSceneId,
+                sceneName: sceneInfo.name,
+                url: sceneInfo.url,
+                error: 'Asset creation/retrieval failed'
+            });
+            return;
+        }
+        
+        // Load asset if not already loaded
+        if (!asset.resource) {
+            console.log(`[Build ${BUILD_VERSION}] ⏳ Asset for "${targetSceneId}" not loaded, loading now...`);
+            const onAssetReady = () => {
+                console.log(`[Build ${BUILD_VERSION}] ✅ Asset for "${targetSceneId}" loaded successfully`);
+                // Retry scene change after asset loads
+                changeToScene(targetSceneId);
+            };
+            const onAssetError = (error) => {
+                const errorMsg = `[Build ${BUILD_VERSION}] ❌ Failed to load asset for "${targetSceneId}": ${error}`;
+                console.error(errorMsg, error);
+                data.emit('sceneLoadError', {
+                    sceneId: targetSceneId,
+                    sceneName: sceneInfo.name,
+                    url: sceneInfo.url,
+                    error: `Asset load failed: ${error}`,
+                    httpStatus: error?.status || 'unknown'
+                });
+            };
+            asset.ready(onAssetReady);
+            asset.on('error', onAssetError);
+            app.assets.load(asset);
+            return; // Will retry after asset loads or error
         }
         
         // Find or create the target scene entity
@@ -202,15 +392,20 @@ assetListLoader.load(() => {
         if (!targetScene) {
             targetScene = createSceneEntity(targetSceneId);
             if (!targetScene) {
-                console.error(`Failed to create scene "${targetSceneId}"`);
+                const errorMsg = `[Build ${BUILD_VERSION}] ❌ Scene change failed: Could not create entity for "${targetSceneId}"`;
+                console.error(errorMsg);
+                data.emit('sceneLoadError', {
+                    sceneId: targetSceneId,
+                    sceneName: sceneInfo.name,
+                    url: sceneInfo.url,
+                    error: 'Entity creation failed'
+                });
                 return;
             }
             targetScene.renderOrder = 1;
             targetScene.enabled = false;
             sceneEntities[targetSceneId] = targetScene;
-            
-            // Note: Effect will be initialized during transition to ensure shaders are ready
-            // when the scene is enabled
+            console.log(`[Build ${BUILD_VERSION}] ✅ Scene entity created for "${targetSceneId}"`);
         }
         
         // Set next scene for transition
@@ -252,11 +447,7 @@ assetListLoader.load(() => {
                 const newScript = createRadialScript(data, currentActiveScene, GsplatRevealRadial, false);
                 if (newScript) {
                     // Update script reference
-                    if (currentActiveScene === scene1) {
-                        scene1Script = newScript;
-                    } else if (currentActiveScene === scene2) {
-                        scene2Script = newScript;
-                    }
+                    scene1Script = newScript;
                     console.log('Applied loaded settings to script, speed:', newScript.speed);
                 }
             } else {
@@ -605,14 +796,13 @@ assetListLoader.load(() => {
                         }
                     }
                     
-                    // Update script references (for backward compatibility)
+                    // Update script references
                     const currentEffect = data.get('effect') || 'radial';
                     if (currentEffect === 'radial') {
                         scene1Script = currentActiveScene.script?.get(GsplatRevealRadial.scriptName);
                     } else {
                         scene1Script = null;
                     }
-                    scene2Script = null;
                     
                     // Update camera focus to new active scene
                     if (orbitCameraScript) {
@@ -655,7 +845,7 @@ assetListLoader.load(() => {
         }
         
         // Build version for tracking (must match version in reveal.controls.mjs)
-        const BUILD_VERSION = 'v1.4.6';
+        const BUILD_VERSION = 'v1.5.0';
         console.log(`[Build ${BUILD_VERSION}] Starting load full scene animation`);
         
         // Reset hide scene progress when loading full scene
@@ -760,14 +950,11 @@ assetListLoader.load(() => {
         }
     });
     
-    // Initialize current scene ID (scenes already set earlier)
+    // Initialize current scene ID (scenes already set earlier from API)
     console.log(`[Build ${BUILD_VERSION}] Available scenes array:`, availableScenes);
-    console.log(`[Build ${BUILD_VERSION}] Re-setting available scenes in observer (after assets load):`, scenesForObserver);
-    console.log(`[Build ${BUILD_VERSION}] Scenes count:`, scenesForObserver.length, 'expected: 7');
+    console.log(`[Build ${BUILD_VERSION}] Available scenes count:`, availableScenes.length);
     data.set('currentSceneId', currentSceneId);
-    // Re-set to ensure it's still correct after assets load
-    data.set('availableScenes', scenesForObserver);
-    // Verify it was set correctly
+    // Verify scenes are set correctly
     const verifyScenes = data.get('availableScenes');
     console.log(`[Build ${BUILD_VERSION}] Verified scenes in observer:`, verifyScenes, 'count:', verifyScenes?.length);
 

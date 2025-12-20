@@ -7,18 +7,20 @@ import * as pc from 'playcanvas';
 
 /**
  * Available scenes configuration
+ * Note: This list should match the files in engine/examples/assets/splats/
+ * The API endpoint /api/scenes is the source of truth, but assets must be pre-configured here
  */
 export const AVAILABLE_SCENES = [
-    { name: 'Future', plyFile: 'Future.ply', id: 'future' },
-    { name: 'Ceramic', plyFile: 'Ceramic.ply', id: 'ceramic' },
-    { name: 'Room', plyFile: 'Room.ply', id: 'room' },
-    { name: 'The Bull', plyFile: 'the_bull.drc', id: 'the_bull' },
-    { name: 'Cluster Fly XXL', plyFile: 'cluster fly XXL.ply', id: 'cluster_fly_xxl' },
-    { name: 'Bull 06 Selection', plyFile: 'Bull_06_771ks_Sel.ply', id: 'bull_06' },
+    { name: 'Bull 06 Selection', plyFile: 'Bull_06_771ks_Sel.ply', id: 'bull_06_771ks_sel' },
     { name: 'Bull2', plyFile: 'Bull2.ply', id: 'bull2' },
-    { name: 'Chair', plyFile: 'chair.ply', id: 'chair' },
+    { name: 'Canyon', plyFile: 'Canyon.ply', id: 'canyon' },
     { name: 'Chair2', plyFile: 'chair2.ply', id: 'chair2' },
-    { name: 'Skull', plyFile: 'skull.sog', id: 'skull' }
+    { name: 'Cluster Fly XXL', plyFile: 'cluster fly XXL.ply', id: 'cluster_fly_xxl' },
+    { name: 'Future', plyFile: 'Future.ply', id: 'future' },
+    { name: 'Gothic Church Kefermarkt', plyFile: 'gothic-church-kefermarkt.ply', id: 'gothic_church_kefermarkt' },
+    { name: 'Room', plyFile: 'Room.ply', id: 'room' },
+    { name: 'Skull', plyFile: 'skull.sog', id: 'skull' },
+    { name: 'Stonehenge', plyFile: 'stonehenge.ply', id: 'stonehenge' }
 ];
 
 /**
