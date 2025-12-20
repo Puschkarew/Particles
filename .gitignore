@@ -62,6 +62,9 @@ backup-*.tar.gz
 !.cursor/rules
 !.cursor/settings.json
 !.cursor/extensions.json
+.cursor/extensions/
+.cursor/worktrees/
+.cursor/logs/
 
 # Caches / deps
 .cache/

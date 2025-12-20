@@ -7,7 +7,7 @@ import { dirname } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const PORT = 7777;
+const PORT = 5555;
 const ROOT_DIR = join(__dirname, 'standalone-dist');
 
 const MIME_TYPES = {
@@ -25,7 +25,9 @@ const MIME_TYPES = {
     '.woff': 'font/woff',
     '.woff2': 'font/woff2',
     '.ttf': 'font/ttf',
-    '.ply': 'application/octet-stream'
+    '.ply': 'application/octet-stream',
+    '.sog': 'application/octet-stream',
+    '.wasm': 'application/wasm'
 };
 
 const server = createServer((req, res) => {
@@ -75,10 +77,21 @@ const server = createServer((req, res) => {
     }
 });
 
-server.listen(PORT, () => {
-    console.log(`\n✓ Standalone сервер запущен на http://localhost:${PORT}`);
-    console.log(`✓ Откройте: http://localhost:${PORT}/\n`);
+server.listen(PORT, '127.0.0.1', () => {
+    console.log(`\n✓ Standalone server running on http://127.0.0.1:${PORT}`);
+    console.log(`✓ Open: http://127.0.0.1:${PORT}/iframe/gaussian-splatting_reveal.html\n`);
 });
+
+
+
+
+
+
+
+
+
+
+
 
 
 
