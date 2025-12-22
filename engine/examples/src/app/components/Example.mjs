@@ -202,6 +202,16 @@ class Example extends TypedComponent {
             return;
         }
         controlPanelHeader.onclick = () => this.toggleCollapse();
+        
+        // #region agent log
+        // Log controlPanel structure and styles after mount
+        setTimeout(() => {
+            const computedStyle = window.getComputedStyle(controlPanel);
+            const controlPanelContent = controlPanel.querySelector('.pcui-panel-content');
+            const controlPanelControls = document.getElementById('controlPanel-controls');
+            fetch('http://127.0.0.1:7243/ingest/faeff41f-243e-4376-908c-86db694af504',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Example.mjs:214',message:'controlPanel mounted - structure check',data:{hasContent:!!controlPanelContent,hasControls:!!controlPanelControls,overflowY:computedStyle.overflowY,overflow:computedStyle.overflow,height:computedStyle.height,maxHeight:computedStyle.maxHeight},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+        }, 500);
+        // #endregion
 
         // Other events
         window.addEventListener('resize', this._onLayoutChange);

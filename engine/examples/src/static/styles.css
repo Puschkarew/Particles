@@ -345,6 +345,8 @@ body {
     transition: opacity 500ms;
     opacity: 1;
     max-height: calc(100% - 16px);
+    overflow-y: auto;
+    overflow-x: hidden;
 }
 
 /* @media only screen and (min-width: 601px) { */
@@ -401,8 +403,14 @@ body {
     min-width: 46px;
 }
 
+#controlPanel-controls {
+    overflow: visible;
+    overflow-y: visible;
+}
+
 #controlPanel > .pcui-panel-content {
     background-color: #364346;
+    overflow: visible;
 }
 
 #descriptionPanel {
@@ -433,7 +441,7 @@ body {
 
     #controlPanel-controls {
         height: calc(100% - 48px);
-        overflow: auto;
+        overflow: visible;
     }
 
     .code-editor-mobile {

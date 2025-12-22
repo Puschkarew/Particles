@@ -7,7 +7,7 @@ import { loadSettings, saveSettings, initializeAutoSave, SETTINGS_KEYS } from '.
 import { applySettingsToRadialScript, createRadialScript, createRainScript, createGridScript, createEffect, getOrCreateBoxEffect } from './script-factory.mjs';
 
 // Build version for tracking (must match version in reveal.controls.mjs)
-const BUILD_VERSION = 'v1.5.0';
+const BUILD_VERSION = 'v1.5.2';
 
 const { GsplatRevealRadial } = await fileImport(`${rootPath}/static/scripts/esm/gsplat/reveal-radial.mjs`);
 const { GsplatRevealRain } = await fileImport(`${rootPath}/static/scripts/esm/gsplat/reveal-rain.mjs`);
@@ -596,7 +596,7 @@ assetListLoader.load(() => {
         attributes: {
             inertiaFactor: 0.2,
             focusEntity: currentActiveScene,
-            distanceMax: 3.2,
+            distanceMax: 0,
             frameOnStart: false
         }
     });
@@ -845,7 +845,7 @@ assetListLoader.load(() => {
         }
         
         // Build version for tracking (must match version in reveal.controls.mjs)
-        const BUILD_VERSION = 'v1.5.0';
+        const BUILD_VERSION = 'v1.5.2';
         console.log(`[Build ${BUILD_VERSION}] Starting load full scene animation`);
         
         // Reset hide scene progress when loading full scene

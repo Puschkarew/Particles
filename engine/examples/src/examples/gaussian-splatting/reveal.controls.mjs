@@ -8,7 +8,7 @@
  */
 
 // Build version for tracking (must match version in reveal.example.mjs)
-const BUILD_VERSION = 'v1.5.0';
+const BUILD_VERSION = 'v1.5.2';
 
 export const controls = ({ observer, React, jsx }) => {
     
@@ -53,7 +53,11 @@ export const controls = ({ observer, React, jsx }) => {
     container.style.right = '10px';
     container.style.zIndex = '10000';
     container.style.maxHeight = '90vh';
-    container.style.overflowY = 'auto';
+    container.style.overflowY = 'visible';
+    
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/faeff41f-243e-4376-908c-86db694af504',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'reveal.controls.mjs:56',message:'Standalone container created with overflowY:auto',data:{id:container.id,overflowY:container.style.overflowY,maxHeight:container.style.maxHeight},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
     
     // Load and append controls
     loadLilGUI(observer).then(element => {
@@ -202,6 +206,10 @@ function createControls(observer, GUI) {
     container.id = 'controlPanel-controls';
     container.className = 'lilgui-controls';
     container.classList.add('compact');
+    
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/faeff41f-243e-4376-908c-86db694af504',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'reveal.controls.mjs:201',message:'Controls container created (Examples mode)',data:{id:container.id,className:container.className},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
 
     // Create GUI
     const gui = new GUI({
@@ -385,13 +393,14 @@ function createControls(observer, GUI) {
             }
             
             const apiResponse = await response.json();
+            
             // API returns { scenes: [...] } format
             const apiScenes = apiResponse.scenes || (Array.isArray(apiResponse) ? apiResponse : []);
             console.log(`[Build ${BUILD_VERSION}] API returned ${apiScenes.length} scenes:`, apiScenes);
             
             if (!Array.isArray(apiScenes) || apiScenes.length === 0) {
                 console.warn(`[Build ${BUILD_VERSION}] API returned empty or invalid scenes array`);
-                return;
+                throw new Error('API returned empty or invalid scenes array');
             }
             
             // Validate scene objects have required fields
@@ -401,7 +410,7 @@ function createControls(observer, GUI) {
             
             if (validScenes.length === 0) {
                 console.warn(`[Build ${BUILD_VERSION}] No valid scenes found in API response`);
-                return;
+                throw new Error('No valid scenes found in API response');
             }
             
             console.log(`[Build ${BUILD_VERSION}] Valid scenes count: ${validScenes.length}`);
@@ -467,8 +476,22 @@ function createControls(observer, GUI) {
             console.error(`[Build ${BUILD_VERSION}] Error fetching scenes from API:`, error);
             // Keep existing scenes if fetch fails, but show error
             if (availableScenes.length === 0) {
+                // Destroy old controller
+                if (sceneController) {
+                    if (typeof sceneController.destroy === 'function') {
+                        sceneController.destroy();
+                    } else if (sceneController.domElement && sceneController.domElement.parentNode) {
+                        sceneController.domElement.parentNode.removeChild(sceneController.domElement);
+                    }
+                }
+                
+                // Update params with error message
                 sceneParams.currentScene = 'Error loading scenes';
-                sceneController.updateDisplay();
+                
+                // Create new controller with error message option
+                sceneController = sceneFolder.add(sceneParams, 'currentScene', ['Error loading scenes'])
+                    .name('Scene')
+                    .disable(); // Keep disabled to show it's an error state
             }
         }
     };
@@ -604,6 +627,65 @@ function createControls(observer, GUI) {
     appearanceFolder.open();
     sceneFolder.open();
     cameraFolder.open();
+    
+    // #region agent log
+    // Fix: Capture wheel events on control panel to prevent camera control and enable panel scrolling
+    setTimeout(() => {
+        const controlPanel = document.getElementById('controlPanel');
+        if (!controlPanel) {
+            fetch('http://127.0.0.1:7243/ingest/faeff41f-243e-4376-908c-86db694af504',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'reveal.controls.mjs:617',message:'controlPanel not found',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});
+            return;
+        }
+        
+        // Add wheel event handler in capture phase (before window listeners)
+        const handleWheel = (e) => {
+            // #region agent log
+            fetch('http://127.0.0.1:7243/ingest/faeff41f-243e-4376-908c-86db694af504',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'reveal.controls.mjs:625',message:'Wheel event captured on controlPanel',data:{deltaY:e.deltaY,clientX:e.clientX,clientY:e.clientY,scrollTop:controlPanel.scrollTop,scrollHeight:controlPanel.scrollHeight,clientHeight:controlPanel.clientHeight},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});
+            // #endregion
+            
+            // Check if event is within panel bounds
+            const rect = controlPanel.getBoundingClientRect();
+            const isInsidePanel = e.clientX >= rect.left && e.clientX <= rect.right && 
+                                  e.clientY >= rect.top && e.clientY <= rect.bottom;
+            
+            if (isInsidePanel) {
+                // Stop propagation to prevent camera from receiving the event
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                
+                // Scroll the panel
+                const scrollAmount = e.deltaY;
+                const currentScroll = controlPanel.scrollTop;
+                const maxScroll = controlPanel.scrollHeight - controlPanel.clientHeight;
+                
+                // Only prevent default if we can actually scroll
+                if ((currentScroll > 0 && scrollAmount < 0) || (currentScroll < maxScroll && scrollAmount > 0)) {
+                    e.preventDefault();
+                    controlPanel.scrollTop += scrollAmount;
+                    
+                    // #region agent log
+                    fetch('http://127.0.0.1:7243/ingest/faeff41f-243e-4376-908c-86db694af504',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'reveal.controls.mjs:640',message:'Panel scrolled',data:{oldScrollTop:currentScroll,newScrollTop:controlPanel.scrollTop,scrollAmount,preventedDefault:true},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});
+                    // #endregion
+                } else {
+                    // #region agent log
+                    fetch('http://127.0.0.1:7243/ingest/faeff41f-243e-4376-908c-86db694af504',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'reveal.controls.mjs:645',message:'Panel at scroll limit',data:{scrollTop:currentScroll,maxScroll,scrollAmount,preventedDefault:false},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});
+                    // #endregion
+                }
+            } else {
+                // #region agent log
+                fetch('http://127.0.0.1:7243/ingest/faeff41f-243e-4376-908c-86db694af504',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'reveal.controls.mjs:650',message:'Wheel event outside panel bounds',data:{clientX:e.clientX,clientY:e.clientY,rectLeft:rect.left,rectRight:rect.right,rectTop:rect.top,rectBottom:rect.bottom},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});
+                // #endregion
+            }
+        };
+        
+        // Use capture phase to intercept before window listeners
+        controlPanel.addEventListener('wheel', handleWheel, { capture: true, passive: false });
+        
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/faeff41f-243e-4376-908c-86db694af504',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'reveal.controls.mjs:655',message:'Wheel event handler attached to controlPanel',data:{hasControlPanel:!!controlPanel},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});
+        // #endregion
+    }, 1000);
+    // #endregion
 
     // Listen to observer changes to update GUI
     /**
