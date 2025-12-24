@@ -356,20 +356,142 @@ export function createGridScript(entity, GsplatRevealGridEruption) {
 }
 
 /**
+ * Create instant reveal script with configured attributes
+ * @param {pc.Entity} entity - The entity to attach script to
+ * @param {any} GsplatRevealInstant - The instant reveal script class
+ * @returns {any|null} The created script instance or null
+ */
+export function createInstantScript(entity, GsplatRevealInstant) {
+    const script = entity.script?.create(GsplatRevealInstant);
+    if (script) {
+        script.endRadius = 5000;
+    }
+    return script;
+}
+
+/**
+ * Create fade reveal script with configured attributes
+ * @param {pc.Entity} entity - The entity to attach script to
+ * @param {any} GsplatRevealFade - The fade reveal script class
+ * @returns {any|null} The created script instance or null
+ */
+export function createFadeScript(entity, GsplatRevealFade) {
+    const script = entity.script?.create(GsplatRevealFade);
+    if (script) {
+        script.duration = 2.0;
+        script.endRadius = 5000;
+    }
+    return script;
+}
+
+/**
+ * Create spread reveal script with configured attributes
+ * @param {pc.Entity} entity - The entity to attach script to
+ * @param {any} GsplatRevealSpread - The spread reveal script class
+ * @returns {any|null} The created script instance or null
+ */
+export function createSpreadScript(entity, GsplatRevealSpread) {
+    const script = entity.script?.create(GsplatRevealSpread);
+    if (script) {
+        script.center.set(0, 0, 0);
+        script.speed = 2.0;
+        script.acceleration = 0;
+        script.spreadAngle = 1.0;
+        script.spreadTint.set(1, 0.5, 0);
+        script.spreadTintIntensity = 0.3;
+        script.endRadius = 5000;
+    }
+    return script;
+}
+
+/**
+ * Create unroll reveal script with configured attributes
+ * @param {pc.Entity} entity - The entity to attach script to
+ * @param {any} GsplatRevealUnroll - The unroll reveal script class
+ * @returns {any|null} The created script instance or null
+ */
+export function createUnrollScript(entity, GsplatRevealUnroll) {
+    const script = entity.script?.create(GsplatRevealUnroll);
+    if (script) {
+        script.center.set(0, 0, 0);
+        script.direction.set(1, 0, 0);
+        script.speed = 2.0;
+        script.unrollAngle = 1.57; // 90 degrees
+        script.unrollTint.set(0.5, 0.8, 1.0);
+        script.unrollTintIntensity = 0.2;
+        script.endRadius = 5000;
+    }
+    return script;
+}
+
+/**
+ * Create twister reveal script with configured attributes
+ * @param {pc.Entity} entity - The entity to attach script to
+ * @param {any} GsplatRevealTwister - The twister reveal script class
+ * @returns {any|null} The created script instance or null
+ */
+export function createTwisterScript(entity, GsplatRevealTwister) {
+    const script = entity.script?.create(GsplatRevealTwister);
+    if (script) {
+        script.center.set(0, 0, 0);
+        script.speed = 2.0;
+        script.twistIntensity = 1.0;
+        script.rotationSpeed = 0.5;
+        script.twistTint.set(1, 0, 1);
+        script.twistTintIntensity = 0.3;
+        script.endRadius = 5000;
+    }
+    return script;
+}
+
+/**
+ * Create magic reveal script with configured attributes
+ * @param {pc.Entity} entity - The entity to attach script to
+ * @param {any} GsplatRevealMagic - The magic reveal script class
+ * @returns {any|null} The created script instance or null
+ */
+export function createMagicScript(entity, GsplatRevealMagic) {
+    const script = entity.script?.create(GsplatRevealMagic);
+    if (script) {
+        script.center.set(0, 0, 0);
+        script.speed = 2.0;
+        script.distortionAmount = 0.5;
+        script.pulseSpeed = 2.0;
+        script.magicIntensity = 1.0;
+        script.magicTint.set(0.5, 0.3, 1.0);
+        script.magicTintIntensity = 0.4;
+        script.endRadius = 5000;
+    }
+    return script;
+}
+
+/**
  * Create and start an effect based on its name
  * @param {import('@playcanvas/observer').Observer} observer - The observer instance
- * @param {string} effectName - Name of the effect to create ('radial', 'rain', or 'grid')
+ * @param {string} effectName - Name of the effect to create
  * @param {pc.Entity} entity - Entity to apply effect to
  * @param {any} GsplatRevealRadial - The radial reveal script class
  * @param {any} GsplatRevealRain - The rain reveal script class
  * @param {any} GsplatRevealGridEruption - The grid eruption reveal script class
+ * @param {any} GsplatRevealInstant - The instant reveal script class
+ * @param {any} GsplatRevealFade - The fade reveal script class
+ * @param {any} GsplatRevealSpread - The spread reveal script class
+ * @param {any} GsplatRevealUnroll - The unroll reveal script class
+ * @param {any} GsplatRevealTwister - The twister reveal script class
+ * @param {any} GsplatRevealMagic - The magic reveal script class
  * @returns {any|null} The created script instance or null
  */
-export function createEffect(observer, effectName, entity, GsplatRevealRadial, GsplatRevealRain, GsplatRevealGridEruption) {
+export function createEffect(observer, effectName, entity, GsplatRevealRadial, GsplatRevealRain, GsplatRevealGridEruption, GsplatRevealInstant, GsplatRevealFade, GsplatRevealSpread, GsplatRevealUnroll, GsplatRevealTwister, GsplatRevealMagic) {
     // Destroy any existing reveal scripts
-    entity.script?.destroy(GsplatRevealRadial.scriptName);
-    entity.script?.destroy(GsplatRevealRain.scriptName);
-    entity.script?.destroy(GsplatRevealGridEruption.scriptName);
+    entity.script?.destroy(GsplatRevealRadial?.scriptName);
+    entity.script?.destroy(GsplatRevealRain?.scriptName);
+    entity.script?.destroy(GsplatRevealGridEruption?.scriptName);
+    entity.script?.destroy(GsplatRevealInstant?.scriptName);
+    entity.script?.destroy(GsplatRevealFade?.scriptName);
+    entity.script?.destroy(GsplatRevealSpread?.scriptName);
+    entity.script?.destroy(GsplatRevealUnroll?.scriptName);
+    entity.script?.destroy(GsplatRevealTwister?.scriptName);
+    entity.script?.destroy(GsplatRevealMagic?.scriptName);
 
     // Create the selected effect (fresh instance, starts from beginning)
     let createdScript = null;
@@ -379,6 +501,18 @@ export function createEffect(observer, effectName, entity, GsplatRevealRadial, G
         createdScript = createRainScript(entity, GsplatRevealRain);
     } else if (effectName === 'grid') {
         createdScript = createGridScript(entity, GsplatRevealGridEruption);
+    } else if (effectName === 'instant') {
+        createdScript = createInstantScript(entity, GsplatRevealInstant);
+    } else if (effectName === 'fade') {
+        createdScript = createFadeScript(entity, GsplatRevealFade);
+    } else if (effectName === 'spread') {
+        createdScript = createSpreadScript(entity, GsplatRevealSpread);
+    } else if (effectName === 'unroll') {
+        createdScript = createUnrollScript(entity, GsplatRevealUnroll);
+    } else if (effectName === 'twister') {
+        createdScript = createTwisterScript(entity, GsplatRevealTwister);
+    } else if (effectName === 'magic') {
+        createdScript = createMagicScript(entity, GsplatRevealMagic);
     }
     return createdScript;
 }

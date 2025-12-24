@@ -8,7 +8,7 @@
  */
 
 // Build version for tracking (must match version in reveal.example.mjs)
-const BUILD_VERSION = 'v1.6.3';
+const BUILD_VERSION = 'v1.7.0';
 
 export const controls = ({ observer, React, jsx }) => {
     
@@ -221,6 +221,81 @@ if (observer.get('endRadius') === undefined) observer.set('endRadius', 5000);
         .name('Build')
         .disable(); // Make it read-only
 
+    // Initialize effect selection - load from localStorage or default to 'radial'
+    const savedEffect = localStorage.getItem('revealEffect') || 'radial';
+    if (!observer.get('effect')) {
+        observer.set('effect', savedEffect);
+    }
+
+    // ==========================================
+    // REVEAL TYPE - Effect selection and reveal button
+    // ==========================================
+    const revealTypeFolder = gui.addFolder('Reveal');
+    revealTypeFolder.open(); // Open by default
+    
+    // Available reveal effects
+    const revealEffects = [
+        'Radial',
+        'Rain',
+        'Grid',
+        'Instant',
+        'Fade',
+        'Spread',
+        'Unroll',
+        'Twister',
+        'Magic'
+    ];
+    
+    // Map display names to internal effect names
+    const effectNameMap = {
+        'Radial': 'radial',
+        'Rain': 'rain',
+        'Grid': 'grid',
+        'Instant': 'instant',
+        'Fade': 'fade',
+        'Spread': 'spread',
+        'Unroll': 'unroll',
+        'Twister': 'twister',
+        'Magic': 'magic'
+    };
+    
+    // Reverse map for display
+    const effectDisplayMap = {
+        'radial': 'Radial',
+        'rain': 'Rain',
+        'grid': 'Grid',
+        'instant': 'Instant',
+        'fade': 'Fade',
+        'spread': 'Spread',
+        'unroll': 'Unroll',
+        'twister': 'Twister',
+        'magic': 'Magic'
+    };
+    
+    const currentEffect = observer.get('effect') || 'radial';
+    const currentEffectDisplay = effectDisplayMap[currentEffect] || 'Radial';
+    
+    const revealParams = {
+        effectType: currentEffectDisplay
+    };
+    
+    const effectController = revealTypeFolder.add(revealParams, 'effectType', revealEffects)
+        .name('Effect Type')
+        .onChange((value) => {
+            const effectName = effectNameMap[value];
+            observer.set('effect', effectName);
+            localStorage.setItem('revealEffect', effectName);
+            console.log(`[Build ${BUILD_VERSION}] Reveal effect changed to: ${effectName}`);
+        });
+    
+    // Reveal Scene button
+    const revealActions = {
+        revealScene: () => {
+            observer.emit('revealScene');
+        }
+    };
+    revealTypeFolder.add(revealActions, 'revealScene').name('Reveal Scene');
+
     // Create parameters object that syncs with observer
     const params = {
         // Animation parameters
@@ -264,19 +339,19 @@ if (observer.get('endRadius') === undefined) observer.set('endRadius', 5000);
     };
 
     // ==========================================
-    // REVEAL - Main reveal animation parameters
+    // RADIAL REVEAL - Main reveal animation parameters (for Radial effect)
     // ==========================================
-    const revealFolder = gui.addFolder('Reveal');
-    revealFolder.add(params, 'speed', 0, 3.3, 0.01).name('Speed').onChange(() => {
+    const radialRevealFolder = gui.addFolder('Radial Reveal');
+    radialRevealFolder.add(params, 'speed', 0, 3.3, 0.01).name('Speed').onChange(() => {
         observer.set('speed', params.speed);
     });
-    revealFolder.add(params, 'acceleration', 0, 0.3, 0.001).name('Acceleration').onChange(() => {
+    radialRevealFolder.add(params, 'acceleration', 0, 0.3, 0.001).name('Acceleration').onChange(() => {
         observer.set('acceleration', params.acceleration);
     });
-    revealFolder.add(params, 'delay', 0, 10, 0.1).name('Delay').onChange(() => {
+    radialRevealFolder.add(params, 'delay', 0, 10, 0.1).name('Delay').onChange(() => {
         observer.set('delay', params.delay);
     });
-    revealFolder.add(params, 'dotWaveThickness', 0.1, 3.0, 0.01).name('Thickness').onChange(() => {
+    radialRevealFolder.add(params, 'dotWaveThickness', 0.1, 3.0, 0.01).name('Thickness').onChange(() => {
         observer.set('dotWaveThickness', params.dotWaveThickness);
     });
 
@@ -569,7 +644,6 @@ if (observer.get('endRadius') === undefined) observer.set('endRadius', 5000);
         }
     };
     sceneFolder.add(sceneActions, 'refreshScenes').name('Refresh Scenes');
-    sceneFolder.add(sceneActions, 'revealScene').name('Reveal Scene');
     sceneFolder.add(sceneActions, 'loadFullScene').name('Load Full Scene');
     sceneFolder.add(sceneActions, 'hideScene').name('Hide Scene');
     
@@ -677,7 +751,7 @@ if (observer.get('endRadius') === undefined) observer.set('endRadius', 5000);
     });
 
     // Open folders by default
-    revealFolder.open();
+    radialRevealFolder.open();
     oceanWaveFolder.open();
     motionFolder.open();
     appearanceFolder.open();
@@ -718,6 +792,19 @@ if (observer.get('endRadius') === undefined) observer.set('endRadius', 5000);
         // Use capture phase to intercept before window listeners
         controlPanel.addEventListener('wheel', handleWheel, { capture: true, passive: false });
     }, 1000);
+
+    // Update effect dropdown when effect changes externally
+    observer.on('effect:set', () => {
+        const effect = observer.get('effect');
+        const effectDisplay = effectDisplayMap[effect] || 'Radial';
+        if (revealParams.effectType !== effectDisplay) {
+            revealParams.effectType = effectDisplay;
+            if (effectController) {
+                effectController.updateDisplay();
+            }
+            localStorage.setItem('revealEffect', effect);
+        }
+    });
 
     // Listen to observer changes to update GUI
     /**

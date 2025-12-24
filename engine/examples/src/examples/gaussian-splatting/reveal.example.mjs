@@ -7,11 +7,17 @@ import { loadSettings, saveSettings, initializeAutoSave, SETTINGS_KEYS } from '.
 import { applySettingsToRadialScript, createRadialScript, createRainScript, createGridScript, createEffect, getOrCreateBoxEffect } from './script-factory.mjs';
 
 // Build version for tracking (must match version in reveal.controls.mjs)
-const BUILD_VERSION = 'v1.6.3';
+const BUILD_VERSION = 'v1.7.0';
 
 const { GsplatRevealRadial } = await fileImport(`${rootPath}/static/scripts/esm/gsplat/reveal-radial.mjs`);
 const { GsplatRevealRain } = await fileImport(`${rootPath}/static/scripts/esm/gsplat/reveal-rain.mjs`);
 const { GsplatRevealGridEruption } = await fileImport(`${rootPath}/static/scripts/esm/gsplat/reveal-grid-eruption.mjs`);
+const { GsplatRevealInstant } = await fileImport(`${rootPath}/static/scripts/esm/gsplat/reveal-instant.mjs`);
+const { GsplatRevealFade } = await fileImport(`${rootPath}/static/scripts/esm/gsplat/reveal-fade.mjs`);
+const { GsplatRevealSpread } = await fileImport(`${rootPath}/static/scripts/esm/gsplat/reveal-spread.mjs`);
+const { GsplatRevealUnroll } = await fileImport(`${rootPath}/static/scripts/esm/gsplat/reveal-unroll.mjs`);
+const { GsplatRevealTwister } = await fileImport(`${rootPath}/static/scripts/esm/gsplat/reveal-twister.mjs`);
+const { GsplatRevealMagic } = await fileImport(`${rootPath}/static/scripts/esm/gsplat/reveal-magic.mjs`);
 const { GsplatBoxShaderEffect } = await fileImport(`${rootPath}/static/scripts/esm/gsplat/shader-effect-box.mjs`);
 
 const canvas = /** @type {HTMLCanvasElement} */ (document.getElementById('application-canvas'));
@@ -156,11 +162,12 @@ assetListLoader.load(() => {
     // Load saved settings IMMEDIATELY (before creating script)
     // This ensures script is created with correct settings from the start
 
-    // Array of available effects (extensible for future effects)
-    const effects = ['radial', 'rain', 'grid'];
+    // Array of available effects
+    const effects = ['radial', 'rain', 'grid', 'instant', 'fade', 'spread', 'unroll', 'twister', 'magic'];
 
-    // Default to radial effect
-    data.set('effect', 'radial');
+    // Default to radial effect (or load from localStorage)
+    const savedEffect = localStorage.getItem('revealEffect') || 'radial';
+    data.set('effect', savedEffect);
 
     // Load saved settings IMMEDIATELY (before creating script)
     // This ensures script is created with correct settings from the start
@@ -618,11 +625,28 @@ assetListLoader.load(() => {
     // Get current active script
     const getActiveScript = () => {
         const currentEffect = data.get('effect');
+        if (!currentActiveScene || !currentActiveScene.script) return null;
+        
         if (currentEffect === 'radial') {
-            return currentActiveScene.script?.get(GsplatRevealRadial.scriptName);
+            return currentActiveScene.script.get(GsplatRevealRadial.scriptName);
+        } else if (currentEffect === 'rain') {
+            return currentActiveScene.script.get(GsplatRevealRain.scriptName);
+        } else if (currentEffect === 'grid') {
+            return currentActiveScene.script.get(GsplatRevealGridEruption.scriptName);
+        } else if (currentEffect === 'instant') {
+            return currentActiveScene.script.get(GsplatRevealInstant.scriptName);
+        } else if (currentEffect === 'fade') {
+            return currentActiveScene.script.get(GsplatRevealFade.scriptName);
+        } else if (currentEffect === 'spread') {
+            return currentActiveScene.script.get(GsplatRevealSpread.scriptName);
+        } else if (currentEffect === 'unroll') {
+            return currentActiveScene.script.get(GsplatRevealUnroll.scriptName);
+        } else if (currentEffect === 'twister') {
+            return currentActiveScene.script.get(GsplatRevealTwister.scriptName);
+        } else if (currentEffect === 'magic') {
+            return currentActiveScene.script.get(GsplatRevealMagic.scriptName);
         }
-        // For other effects, get from current active scene
-        return currentActiveScene.script?.get(GsplatRevealRain.scriptName) || currentActiveScene.script?.get(GsplatRevealGridEruption.scriptName);
+        return null;
     };
 
     // Sync observer settings to active script in real-time
@@ -685,10 +709,10 @@ assetListLoader.load(() => {
         }
         
         // Create the reveal effect script
-        scene1Script = createEffect(data, currentEffect, targetScene, GsplatRevealRadial, GsplatRevealRain, GsplatRevealGridEruption);
+        scene1Script = createEffect(data, currentEffect, targetScene, GsplatRevealRadial, GsplatRevealRain, GsplatRevealGridEruption, GsplatRevealInstant, GsplatRevealFade, GsplatRevealSpread, GsplatRevealUnroll, GsplatRevealTwister, GsplatRevealMagic);
         
-        // Apply saved settings if available
-        if (scene1Script && savedSettings) {
+        // Apply saved settings if available (only for radial effect)
+        if (scene1Script && savedSettings && currentEffect === 'radial') {
             const expectedSpeed = savedSettings.speed;
             const currentSpeed = scene1Script.speed;
             const observerSpeed = data.get('speed');
@@ -719,7 +743,7 @@ assetListLoader.load(() => {
                     console.warn('⚠️ Speed still mismatched after re-apply. Recreating script...');
                     const currentScene = scene1 || (sceneEntities[currentSceneId] || currentActiveScene);
                     if (currentScene) {
-                        scene1Script = createEffect(data, currentEffect, currentScene, GsplatRevealRadial, GsplatRevealRain, GsplatRevealGridEruption);
+                        scene1Script = createEffect(data, currentEffect, currentScene, GsplatRevealRadial, GsplatRevealRain, GsplatRevealGridEruption, GsplatRevealInstant, GsplatRevealFade, GsplatRevealSpread, GsplatRevealUnroll, GsplatRevealTwister, GsplatRevealMagic);
                     }
                     const finalSpeed = scene1Script?.speed;
                     console.log('Script recreated, final speed:', finalSpeed);
@@ -748,7 +772,7 @@ assetListLoader.load(() => {
         const effect = data.get('effect');
         // Only create effect if reveal was already started (script exists)
         if (scene1Script && currentActiveScene) {
-            createEffect(data, effect, currentActiveScene, GsplatRevealRadial, GsplatRevealRain, GsplatRevealGridEruption);
+            scene1Script = createEffect(data, effect, currentActiveScene, GsplatRevealRadial, GsplatRevealRain, GsplatRevealGridEruption, GsplatRevealInstant, GsplatRevealFade, GsplatRevealSpread, GsplatRevealUnroll, GsplatRevealTwister, GsplatRevealMagic);
         }
     });
 
@@ -757,7 +781,7 @@ assetListLoader.load(() => {
         const currentEffect = data.get('effect');
         // Only restart if reveal was already started
         if (scene1Script && currentActiveScene) {
-            createEffect(data, currentEffect, currentActiveScene, GsplatRevealRadial, GsplatRevealRain, GsplatRevealGridEruption);
+            scene1Script = createEffect(data, currentEffect, currentActiveScene, GsplatRevealRadial, GsplatRevealRain, GsplatRevealGridEruption, GsplatRevealInstant, GsplatRevealFade, GsplatRevealSpread, GsplatRevealUnroll, GsplatRevealTwister, GsplatRevealMagic);
         }
     });
 
@@ -860,9 +884,7 @@ assetListLoader.load(() => {
         }
 
         // Check if reveal was started (script exists on current scene)
-        const currentScript = currentActiveScene.script?.get(GsplatRevealRadial.scriptName) || 
-                              currentActiveScene.script?.get(GsplatRevealRain.scriptName) || 
-                              currentActiveScene.script?.get(GsplatRevealGridEruption.scriptName);
+        const currentScript = getActiveScript();
         if (!currentScript && !scene1Script) {
             console.warn(`[Build ${BUILD_VERSION}] ⚠️ Scene transition blocked: reveal animation not started. Please click "Reveal Scene" button first.`);
             return;
@@ -975,6 +997,12 @@ assetListLoader.load(() => {
                         nextScene.script?.destroy(GsplatRevealRadial.scriptName);
                         nextScene.script?.destroy(GsplatRevealRain.scriptName);
                         nextScene.script?.destroy(GsplatRevealGridEruption.scriptName);
+                        nextScene.script?.destroy(GsplatRevealInstant.scriptName);
+                        nextScene.script?.destroy(GsplatRevealFade.scriptName);
+                        nextScene.script?.destroy(GsplatRevealSpread.scriptName);
+                        nextScene.script?.destroy(GsplatRevealUnroll.scriptName);
+                        nextScene.script?.destroy(GsplatRevealTwister.scriptName);
+                        nextScene.script?.destroy(GsplatRevealMagic.scriptName);
                         // Scene is already disabled (was disabled at start of transition)
                         nextScene.renderOrder = 1; // Reset render order for future use
                     }
