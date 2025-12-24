@@ -380,6 +380,5 @@ export function createEffect(observer, effectName, entity, GsplatRevealRadial, G
     } else if (effectName === 'grid') {
         createdScript = createGridScript(entity, GsplatRevealGridEruption);
     }
-    
     return createdScript;
 }

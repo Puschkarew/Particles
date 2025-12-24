@@ -8,7 +8,7 @@
  */
 
 // Build version for tracking (must match version in reveal.example.mjs)
-const BUILD_VERSION = 'v1.6.0';
+const BUILD_VERSION = 'v1.6.3';
 
 export const controls = ({ observer, React, jsx }) => {
     
@@ -469,8 +469,66 @@ if (observer.get('endRadius') === undefined) observer.set('endRadius', 5000);
             
         } catch (error) {
             console.error(`[Build ${BUILD_VERSION}] Error fetching scenes from API:`, error);
-            // Keep existing scenes if fetch fails, but show error
+            // Fallback to hardcoded scenes if API fails and no scenes available
             if (availableScenes.length === 0) {
+                try {
+                    // Try to get scenes from observer (set by reveal.example.mjs fallback)
+                    const observerScenes = observer.get('availableScenes');
+                    if (observerScenes && Array.isArray(observerScenes) && observerScenes.length > 0) {
+                        availableScenes = observerScenes;
+                        sceneNames = availableScenes.map(s => s.name);
+                        sceneIds = availableScenes.map(s => s.id);
+                        
+                        // Get current scene ID from observer
+                        const currentSceneId = observer.get('currentSceneId');
+                        const currentSceneIndex = currentSceneId ? sceneIds.indexOf(currentSceneId) : -1;
+                        
+                        // Determine selected scene
+                        let selectedSceneName;
+                        if (currentSceneIndex >= 0) {
+                            selectedSceneName = sceneNames[currentSceneIndex];
+                        } else {
+                            selectedSceneName = sceneNames[0];
+                            if (sceneIds.length > 0) {
+                                observer.set('currentSceneId', sceneIds[0]);
+                            }
+                        }
+                        
+                        // Destroy old controller
+                        if (sceneController) {
+                            if (typeof sceneController.destroy === 'function') {
+                                sceneController.destroy();
+                            } else if (sceneController.domElement && sceneController.domElement.parentNode) {
+                                sceneController.domElement.parentNode.removeChild(sceneController.domElement);
+                            }
+                        }
+                        
+                        // Update params with selected scene
+                        sceneParams.currentScene = selectedSceneName;
+                        
+                        // Create new controller with fallback scenes
+                        sceneController = sceneFolder.add(sceneParams, 'currentScene', sceneNames)
+                            .name('Scene')
+                            .onChange(/** @param {string} value */ (value) => {
+                                const selectedIndex = sceneNames.indexOf(value);
+                                if (selectedIndex >= 0) {
+                                    const selectedSceneId = sceneIds[selectedIndex];
+                                    observer.set('currentSceneId', selectedSceneId);
+                                    observer.emit('changeScene', selectedSceneId);
+                                }
+                            });
+                        
+                        // Re-enable the controller
+                        sceneController.enable();
+                        
+                        console.log(`[Build ${BUILD_VERSION}] Scene dropdown updated with ${sceneNames.length} fallback scenes`);
+                        return; // Successfully used fallback
+                    }
+                } catch (fallbackError) {
+                    console.error(`[Build ${BUILD_VERSION}] Fallback failed:`, fallbackError);
+                }
+                
+                // If fallback also failed, show error
                 // Destroy old controller
                 if (sceneController) {
                     if (typeof sceneController.destroy === 'function') {
@@ -500,6 +558,9 @@ if (observer.get('endRadius') === undefined) observer.set('endRadius', 5000);
             console.log(`[Build ${BUILD_VERSION}] Refresh Scenes button clicked`);
             fetchAndUpdateScenes(true); // Force refresh with cache bypass
         },
+        revealScene: () => {
+            observer.emit('revealScene');
+        },
         loadFullScene: () => {
             observer.emit('loadFullScene');
         },
@@ -508,6 +569,9 @@ if (observer.get('endRadius') === undefined) observer.set('endRadius', 5000);
         }
     };
     sceneFolder.add(sceneActions, 'refreshScenes').name('Refresh Scenes');
+    sceneFolder.add(sceneActions, 'revealScene').name('Reveal Scene');
+    sceneFolder.add(sceneActions, 'loadFullScene').name('Load Full Scene');
+    sceneFolder.add(sceneActions, 'hideScene').name('Hide Scene');
     
     // Update dropdown when scene changes externally
     observer.on('sceneChanged', /** @param {string} sceneId */ (sceneId) => {
@@ -552,9 +616,6 @@ if (observer.get('endRadius') === undefined) observer.set('endRadius', 5000);
             console.error(`[Build ${BUILD_VERSION}] Available scenes:`, availScenes);
         }
     });
-    
-    sceneFolder.add(sceneActions, 'loadFullScene').name('Load Full Scene');
-    sceneFolder.add(sceneActions, 'hideScene').name('Hide Scene');
     
     // Add Load Full Scene animation settings
     sceneFolder.add(params, 'loadFullSceneDuration', 0.1, 10.0, 0.1).name('Load Duration').onChange(() => {

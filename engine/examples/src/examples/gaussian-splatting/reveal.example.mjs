@@ -7,7 +7,7 @@ import { loadSettings, saveSettings, initializeAutoSave, SETTINGS_KEYS } from '.
 import { applySettingsToRadialScript, createRadialScript, createRainScript, createGridScript, createEffect, getOrCreateBoxEffect } from './script-factory.mjs';
 
 // Build version for tracking (must match version in reveal.controls.mjs)
-const BUILD_VERSION = 'v1.6.0';
+const BUILD_VERSION = 'v1.6.3';
 
 const { GsplatRevealRadial } = await fileImport(`${rootPath}/static/scripts/esm/gsplat/reveal-radial.mjs`);
 const { GsplatRevealRain } = await fileImport(`${rootPath}/static/scripts/esm/gsplat/reveal-rain.mjs`);
@@ -435,11 +435,11 @@ assetListLoader.load(() => {
                 const handleFallback = (fallbackScene) => {
                     if (fallbackScene) {
                         currentSceneId = fallbackId;
-                        fallbackScene.enabled = true;
+                        fallbackScene.enabled = false; // Keep disabled - black screen until "Reveal Scene" is clicked
                         sceneEntities[currentSceneId] = fallbackScene;
                         scene1 = fallbackScene; // Update scene1 reference
                         currentActiveScene = fallbackScene;
-                        console.log(`[Build ${BUILD_VERSION}] ✅ Fallback scene "${currentSceneId}" created and enabled`);
+                        console.log(`[Build ${BUILD_VERSION}] ✅ Fallback scene "${currentSceneId}" created (disabled - black screen until "Reveal Scene" is clicked)`);
                     }
                 };
                 if (fallbackResult instanceof Promise) {
@@ -449,12 +449,13 @@ assetListLoader.load(() => {
                 }
             }
         } else {
-            sceneEntity.enabled = true; // Enable initial scene
+            // Don't enable initial scene - show black screen until user clicks "Reveal Scene"
+            sceneEntity.enabled = false; // Keep scene disabled initially
             sceneEntities[currentSceneId] = sceneEntity;
             scene1 = sceneEntity; // Update scene1 reference
             // Update currentActiveScene
             currentActiveScene = sceneEntity;
-            console.log(`[Build ${BUILD_VERSION}] ✅ Initial scene "${currentSceneId}" created and enabled`);
+            console.log(`[Build ${BUILD_VERSION}] ✅ Initial scene "${currentSceneId}" created (disabled - black screen until "Reveal Scene" is clicked)`);
         }
     };
     // Update scene1 reference when Promise resolves
@@ -466,14 +467,8 @@ assetListLoader.load(() => {
             if (scene1) {
                 currentActiveScene = scene1;
             }
-            // Create script after scene is loaded
-            if (scene1) {
-                scene1Script = createEffect(data, 'radial', scene1, GsplatRevealRadial, GsplatRevealRain, GsplatRevealGridEruption);
-                // Apply settings if needed
-                if (scene1Script && savedSettings) {
-                    applySettingsToRadialScript(data, scene1Script, true);
-                }
-            }
+            // REMOVED: Automatic script creation - now triggered by "Reveal Scene" button
+            // Script will be created when user clicks "Reveal Scene" button
         });
     } else {
         scene1 = scene1Result;
@@ -645,19 +640,14 @@ assetListLoader.load(() => {
     // Define function to apply loaded settings (after syncSettingsToScript is defined)
     applyLoadedSettings = () => {
         if (settingsLoaded && currentActiveScene) {
-            // For radial effect, recreate the script to ensure it starts with correct settings
-            const currentEffect = data.get('effect');
-            if (currentEffect === 'radial') {
-                // Recreate the script with loaded settings
-                const newScript = createRadialScript(data, currentActiveScene, GsplatRevealRadial, false);
-                if (newScript) {
-                    // Update script reference
-                    scene1Script = newScript;
-                    console.log('Applied loaded settings to script, speed:', newScript.speed);
-                }
-            } else {
-                // For other effects, just sync settings
+            // Only apply settings if script already exists (reveal was started by user)
+            // DO NOT create script automatically - wait for user to click "Reveal Scene"
+            if (scene1Script) {
+                // Script exists, just sync settings to it
                 syncSettingsToScript();
+            } else {
+                // Script doesn't exist yet - don't create it automatically
+                // User must click "Reveal Scene" button first
             }
         }
     };
@@ -675,100 +665,100 @@ assetListLoader.load(() => {
         });
     }, 300);
 
-    // Create only the radial script initially on scene1
-    // If settings were loaded, they are already in observer, so script will use them
-    // Note: scene1 may be null if createSceneEntity returned a Promise
-    // Use currentActiveScene instead of scene1 to avoid undefined errors
-    const initialScene = scene1 || currentActiveScene || (sceneEntities[currentSceneId] || null);
-    if (initialScene) {
-        scene1Script = createEffect(data, 'radial', initialScene, GsplatRevealRadial, GsplatRevealRain, GsplatRevealGridEruption);
-    }
+    // REMOVED: Automatic script creation - now triggered by "Reveal Scene" button
+    // Script will be created when user clicks "Reveal Scene" button
     
-    // CRITICAL: If settings were loaded, immediately verify and fix script settings
-    // This must happen synchronously right after script creation
-    if (scene1Script && savedSettings) {
-        const expectedSpeed = savedSettings.speed;
-        const currentSpeed = scene1Script.speed;
-        const observerSpeed = data.get('speed');
+    // Handle reveal scene button - start reveal animation
+    data.on('revealScene', () => {
+        const currentEffect = data.get('effect') || 'radial';
+        const targetScene = currentActiveScene || scene1 || (sceneEntities[currentSceneId] || null);
+        if (!targetScene) {
+            console.warn(`[Build ${BUILD_VERSION}] ⚠️ Cannot start reveal: no active scene`);
+            return;
+        }
         
-        console.log('=== INITIAL SETTINGS VERIFICATION ===');
-        console.log('Script speed after creation:', currentSpeed);
-        console.log('Observer speed:', observerSpeed);
-        console.log('Saved speed from localStorage:', expectedSpeed);
+        console.log(`[Build ${BUILD_VERSION}] 🎬 Starting reveal animation for scene "${currentSceneId}" with effect "${currentEffect}"`);
         
-        // ALWAYS re-apply saved settings to ensure they are correct
-        // This is necessary because script may have started with defaults before settings were applied
-        if (expectedSpeed !== undefined) {
-            console.log('Re-applying ALL saved settings to ensure correctness...');
+        // Enable the scene first (it was disabled to show black screen)
+        if (!targetScene.enabled) {
+            targetScene.enabled = true;
+        }
+        
+        // Create the reveal effect script
+        scene1Script = createEffect(data, currentEffect, targetScene, GsplatRevealRadial, GsplatRevealRain, GsplatRevealGridEruption);
+        
+        // Apply saved settings if available
+        if (scene1Script && savedSettings) {
+            const expectedSpeed = savedSettings.speed;
+            const currentSpeed = scene1Script.speed;
+            const observerSpeed = data.get('speed');
             
-            // First, ensure observer has correct values (re-apply to be sure)
-            Object.keys(savedSettings).forEach(key => {
-                data.set(key, savedSettings[key]);
-            });
+            console.log('=== REVEAL STARTED - SETTINGS VERIFICATION ===');
+            console.log('Script speed after creation:', currentSpeed);
+            console.log('Observer speed:', observerSpeed);
+            console.log('Saved speed from localStorage:', expectedSpeed);
             
-            // Then force apply to script with ALL settings
-            applySettingsToRadialScript(data, scene1Script, true);
-            
-            // Verify it worked
-            const newSpeed = scene1Script.speed;
-            console.log('After re-apply, script speed:', newSpeed);
-            
-            // If still mismatched, recreate script (this ensures animation restarts with correct values)
-            if (Math.abs(newSpeed - expectedSpeed) > 0.001) {
-                console.warn('⚠️ Speed still mismatched after re-apply. Recreating script to restart animation...');
-                const currentScene = scene1 || (sceneEntities[currentSceneId] || currentActiveScene);
-                if (currentScene) {
-                    scene1Script = createEffect(data, 'radial', currentScene, GsplatRevealRadial, GsplatRevealRain, GsplatRevealGridEruption);
-                }
-                const finalSpeed = scene1Script?.speed;
-                console.log('Script recreated, final speed:', finalSpeed);
-                if (Math.abs(finalSpeed - expectedSpeed) > 0.001) {
-                    console.error('❌ CRITICAL: Speed still wrong after recreation!', {
-                        expected: expectedSpeed,
-                        actual: finalSpeed,
-                        observer: data.get('speed')
-                    });
+            // Re-apply saved settings to ensure they are correct
+            if (expectedSpeed !== undefined) {
+                console.log('Re-applying ALL saved settings to ensure correctness...');
+                
+                // First, ensure observer has correct values
+                Object.keys(savedSettings).forEach(key => {
+                    data.set(key, savedSettings[key]);
+                });
+                
+                // Then force apply to script with ALL settings
+                applySettingsToRadialScript(data, scene1Script, true);
+                
+                // Verify it worked
+                const newSpeed = scene1Script.speed;
+                console.log('After re-apply, script speed:', newSpeed);
+                
+                // If still mismatched, recreate script
+                if (Math.abs(newSpeed - expectedSpeed) > 0.001) {
+                    console.warn('⚠️ Speed still mismatched after re-apply. Recreating script...');
+                    const currentScene = scene1 || (sceneEntities[currentSceneId] || currentActiveScene);
+                    if (currentScene) {
+                        scene1Script = createEffect(data, currentEffect, currentScene, GsplatRevealRadial, GsplatRevealRain, GsplatRevealGridEruption);
+                    }
+                    const finalSpeed = scene1Script?.speed;
+                    console.log('Script recreated, final speed:', finalSpeed);
+                    if (Math.abs(finalSpeed - expectedSpeed) > 0.001) {
+                        console.error('❌ CRITICAL: Speed still wrong after recreation!', {
+                            expected: expectedSpeed,
+                            actual: finalSpeed,
+                            observer: data.get('speed')
+                        });
+                    } else {
+                        console.log('✅ Speed correct after recreation');
+                    }
                 } else {
-                    console.log('✅ Speed correct after recreation');
+                    console.log('✅ Speed matches after re-apply');
                 }
-            } else {
-                console.log('✅ Speed matches after re-apply');
             }
-        }
-        console.log('=====================================');
-    } else if (scene1Script) {
-        console.log('ℹ️ Script created, no saved settings to verify');
-    }
-
-    // Apply loaded settings to the script after controls initialize (as fallback)
-    // This ensures settings are re-applied if controls override them
-    setTimeout(() => {
-        if (savedSettings && scene1Script) {
-            console.log('=== RE-APPLYING SETTINGS AFTER CONTROLS INIT ===');
-            // Re-apply all saved settings to observer first
-            Object.keys(savedSettings).forEach(key => {
-                data.set(key, savedSettings[key]);
-            });
-            // Then force apply to script
-            applySettingsToRadialScript(data, scene1Script, true);
-            console.log('Final script speed after re-apply:', scene1Script.speed);
             console.log('===============================================');
-        } else if (applyLoadedSettings && savedSettings) {
-            console.log('Re-applying settings after controls init (using applyLoadedSettings)...');
-            applyLoadedSettings();
+        } else if (scene1Script) {
+            console.log('ℹ️ Reveal started, no saved settings to verify');
         }
-    }, 250); // After controls have initialized (increased delay to ensure controls are ready)
+    });
 
     // Switch between effects when dropdown changes
+    // Only recreate effect if script already exists (i.e., reveal was started)
     data.on('effect:set', () => {
         const effect = data.get('effect');
-        createEffect(data, effect, currentActiveScene, GsplatRevealRadial, GsplatRevealRain, GsplatRevealGridEruption);
+        // Only create effect if reveal was already started (script exists)
+        if (scene1Script && currentActiveScene) {
+            createEffect(data, effect, currentActiveScene, GsplatRevealRadial, GsplatRevealRain, GsplatRevealGridEruption);
+        }
     });
 
     // Restart button - recreate current effect from beginning
     data.on('restart', () => {
         const currentEffect = data.get('effect');
-        createEffect(data, currentEffect, currentActiveScene, GsplatRevealRadial, GsplatRevealRain, GsplatRevealGridEruption);
+        // Only restart if reveal was already started
+        if (scene1Script && currentActiveScene) {
+            createEffect(data, currentEffect, currentActiveScene, GsplatRevealRadial, GsplatRevealRain, GsplatRevealGridEruption);
+        }
     });
 
     // Prev button - cycle to previous effect in the list
@@ -869,6 +859,15 @@ assetListLoader.load(() => {
             return;
         }
 
+        // Check if reveal was started (script exists on current scene)
+        const currentScript = currentActiveScene.script?.get(GsplatRevealRadial.scriptName) || 
+                              currentActiveScene.script?.get(GsplatRevealRain.scriptName) || 
+                              currentActiveScene.script?.get(GsplatRevealGridEruption.scriptName);
+        if (!currentScript && !scene1Script) {
+            console.warn(`[Build ${BUILD_VERSION}] ⚠️ Scene transition blocked: reveal animation not started. Please click "Reveal Scene" button first.`);
+            return;
+        }
+
         transitionStarted = true;
 
         try {
@@ -928,46 +927,18 @@ assetListLoader.load(() => {
                 currentActiveScene.enabled = false;
             }
             
-            // Prepare next scene effect BEFORE enabling it
+            // Prepare next scene - DO NOT create reveal script automatically
+            // User must click "Reveal Scene" button to start reveal animation
             try {
-                // Get current effect to apply to next scene
-                const currentEffect = data.get('effect') || 'radial';
-                
-                // Create the appropriate effect script for next scene BEFORE enabling
-                // This ensures shaders are properly initialized
-                let forwardScript = null;
-                if (currentEffect === 'radial') {
-                    forwardScript = createRadialScript(data, nextScene, GsplatRevealRadial, false, 1.0);
-                } else if (currentEffect === 'rain') {
-                    forwardScript = createRainScript(nextScene, GsplatRevealRain);
-                } else if (currentEffect === 'grid') {
-                    forwardScript = createGridScript(nextScene, GsplatRevealGridEruption);
-                }
-                
-                if (!forwardScript) {
-                    console.error('Failed to create forward script');
-                    transitionStarted = false;
-                    // Re-enable current scene if forward script failed
-                    if (currentActiveScene) {
-                        currentActiveScene.enabled = true;
-                    }
-                    return;
-                }
-                
-                // Set delay for radial script, other effects might not support delay
-                if (forwardScript.delay !== undefined) {
-                    forwardScript.delay = nextSceneStartTime; // Start after overlap time
-                }
-                
                 // Set render order to ensure proper layering (higher = on top)
                 if (currentActiveScene) {
                     currentActiveScene.renderOrder = 0;
                 }
                 nextScene.renderOrder = 1;
                 
-                // Enable next scene AFTER effect is created and configured
-                // This ensures shaders are ready before rendering starts
-                nextScene.enabled = true;
+                // DO NOT enable next scene - keep it disabled (black screen)
+                // User must click "Reveal Scene" button to start reveal animation
+                nextScene.enabled = false;
             } catch (error) {
                 console.error('Error creating forward script:', error);
                 transitionStarted = false;
@@ -1008,22 +979,16 @@ assetListLoader.load(() => {
                         nextScene.renderOrder = 1; // Reset render order for future use
                     }
                     
-                    // Ensure current active scene is properly set on top and enabled
+                    // Ensure current active scene is properly set on top
+                    // DO NOT enable it - keep disabled (black screen) until user clicks "Reveal Scene"
                     if (currentActiveScene) {
                         currentActiveScene.renderOrder = 1;
-                        // Scene should already be enabled from transition start
-                        if (!currentActiveScene.enabled) {
-                            currentActiveScene.enabled = true;
-                        }
+                        // Keep scene disabled - user must click "Reveal Scene" to start reveal
+                        currentActiveScene.enabled = false;
                     }
                     
-                    // Update script references
-                    const currentEffect = data.get('effect') || 'radial';
-                    if (currentEffect === 'radial') {
-                        scene1Script = currentActiveScene.script?.get(GsplatRevealRadial.scriptName);
-                    } else {
-                        scene1Script = null;
-                    }
+                    // Clear script references - no reveal script until user clicks "Reveal Scene"
+                    scene1Script = null;
                     
                     // Update camera focus to new active scene
                     if (orbitCameraScript) {
