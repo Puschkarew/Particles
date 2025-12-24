@@ -5,6 +5,12 @@
 
 import * as pc from 'playcanvas';
 
+// Minimum radius so splats stay visible even when the camera is very far away
+const MIN_END_RADIUS = 5000;
+const MIN_POINT_CLOUD_SCALE = 1.2;
+const MIN_POINT_CLOUD_DENSITY = 1.0;
+const MIN_POINT_CLOUD_OPACITY = 0.9;
+
 /**
  * Helper function to apply observer settings to radial script
  * @param {import('@playcanvas/observer').Observer} observer - The observer instance
@@ -37,7 +43,13 @@ export function applySettingsToRadialScript(observer, script, force = false) {
     
     const endRadius = observer.get('endRadius');
     if (force || (endRadius !== undefined && endRadius !== null)) {
-        script.endRadius = endRadius !== undefined && endRadius !== null ? endRadius : script.endRadius;
+        const targetEndRadius = endRadius !== undefined && endRadius !== null ? endRadius : script.endRadius;
+        script.endRadius = Math.max(targetEndRadius, MIN_END_RADIUS);
+        observer.set('endRadius', script.endRadius); // keep observer in sync with enforced minimum
+    } else {
+        // enforce minimum even when observer has no value
+        script.endRadius = Math.max(script.endRadius, MIN_END_RADIUS);
+        observer.set('endRadius', script.endRadius);
     }
     
     const revealStartRadius = observer.get('revealStartRadius');
@@ -47,17 +59,32 @@ export function applySettingsToRadialScript(observer, script, force = false) {
     
     const pointCloudScale = observer.get('pointCloudScale');
     if (force || (pointCloudScale !== undefined && pointCloudScale !== null)) {
-        script.pointCloudScale = pointCloudScale !== undefined && pointCloudScale !== null ? pointCloudScale : script.pointCloudScale;
+        const targetScale = pointCloudScale !== undefined && pointCloudScale !== null ? pointCloudScale : script.pointCloudScale;
+        script.pointCloudScale = Math.max(targetScale, MIN_POINT_CLOUD_SCALE);
+        observer.set('pointCloudScale', script.pointCloudScale);
+    } else {
+        script.pointCloudScale = Math.max(script.pointCloudScale, MIN_POINT_CLOUD_SCALE);
+        observer.set('pointCloudScale', script.pointCloudScale);
     }
     
     const pointCloudDensity = observer.get('pointCloudDensity');
     if (force || (pointCloudDensity !== undefined && pointCloudDensity !== null)) {
-        script.pointCloudDensity = pointCloudDensity !== undefined && pointCloudDensity !== null ? pointCloudDensity : script.pointCloudDensity;
+        const targetDensity = pointCloudDensity !== undefined && pointCloudDensity !== null ? pointCloudDensity : script.pointCloudDensity;
+        script.pointCloudDensity = Math.max(Math.min(targetDensity, 1.0), MIN_POINT_CLOUD_DENSITY);
+        observer.set('pointCloudDensity', script.pointCloudDensity);
+    } else {
+        script.pointCloudDensity = Math.max(Math.min(script.pointCloudDensity, 1.0), MIN_POINT_CLOUD_DENSITY);
+        observer.set('pointCloudDensity', script.pointCloudDensity);
     }
     
     const pointCloudOpacity = observer.get('pointCloudOpacity');
     if (force || (pointCloudOpacity !== undefined && pointCloudOpacity !== null)) {
-        script.pointCloudOpacity = pointCloudOpacity !== undefined && pointCloudOpacity !== null ? pointCloudOpacity : script.pointCloudOpacity;
+        const targetOpacity = pointCloudOpacity !== undefined && pointCloudOpacity !== null ? pointCloudOpacity : script.pointCloudOpacity;
+        script.pointCloudOpacity = Math.max(targetOpacity, MIN_POINT_CLOUD_OPACITY);
+        observer.set('pointCloudOpacity', script.pointCloudOpacity);
+    } else {
+        script.pointCloudOpacity = Math.max(script.pointCloudOpacity, MIN_POINT_CLOUD_OPACITY);
+        observer.set('pointCloudOpacity', script.pointCloudOpacity);
     }
     
     const dotWaveThickness = observer.get('dotWaveThickness');

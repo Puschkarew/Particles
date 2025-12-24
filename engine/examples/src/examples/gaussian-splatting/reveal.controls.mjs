@@ -8,7 +8,7 @@
  */
 
 // Build version for tracking (must match version in reveal.example.mjs)
-const BUILD_VERSION = 'v1.5.2';
+const BUILD_VERSION = 'v1.5.6';
 
 export const controls = ({ observer, React, jsx }) => {
     
@@ -172,8 +172,8 @@ function createControls(observer, GUI) {
     observer.set('dispersiveMotionSpeed', 0);
     observer.set('flagMotionSpeed', 0);
     observer.set('waveMotionSpeed', 0);
-    if (observer.get('pointCloudScale') === undefined) observer.set('pointCloudScale', 0.5);
-    if (observer.get('pointCloudDensity') === undefined) observer.set('pointCloudDensity', 0.65);
+    if (observer.get('pointCloudScale') === undefined) observer.set('pointCloudScale', 1.2);
+    if (observer.get('pointCloudDensity') === undefined) observer.set('pointCloudDensity', 1.0);
     if (observer.get('dotWaveThickness') === undefined) observer.set('dotWaveThickness', 1.0);
     if (observer.get('oceanWaveThickness') === undefined) observer.set('oceanWaveThickness', 0.33);
     if (observer.get('oceanWaveInterval') === undefined) observer.set('oceanWaveInterval', 10);
@@ -187,7 +187,8 @@ function createControls(observer, GUI) {
     if (observer.get('baseBrightness') === undefined) observer.set('baseBrightness', 0.7);
     if (observer.get('delay') === undefined) observer.set('delay', 0);
     if (observer.get('oscillationIntensity') === undefined) observer.set('oscillationIntensity', 0.2);
-    if (observer.get('endRadius') === undefined) observer.set('endRadius', 25);
+// Big endRadius to prevent distant culling of splats
+if (observer.get('endRadius') === undefined) observer.set('endRadius', 5000);
     if (observer.get('revealStartRadius') === undefined) observer.set('revealStartRadius', 0.4);
     if (observer.get('pointCloudOpacity') === undefined) observer.set('pointCloudOpacity', 0.7);
     // Load Full Scene animation settings
@@ -237,8 +238,8 @@ function createControls(observer, GUI) {
         dispersiveMotionSpeed: 0,
         flagMotionSpeed: 0,
         waveMotionSpeed: 0,
-        pointCloudScale: observer.get('pointCloudScale') ?? 0.5,
-        pointCloudDensity: observer.get('pointCloudDensity') ?? 0.65,
+        pointCloudScale: observer.get('pointCloudScale') ?? 1.2,
+        pointCloudDensity: observer.get('pointCloudDensity') ?? 1.0,
         dotWaveThickness: observer.get('dotWaveThickness') ?? 1.0,
         oceanWaveThickness: observer.get('oceanWaveThickness') ?? 0.33,
         oceanWaveInterval: observer.get('oceanWaveInterval') ?? 10,
@@ -253,7 +254,7 @@ function createControls(observer, GUI) {
         // Hidden parameters (now exposed)
         delay: observer.get('delay') ?? 0,
         oscillationIntensity: observer.get('oscillationIntensity') ?? 0.2,
-        endRadius: observer.get('endRadius') ?? 25,
+        endRadius: observer.get('endRadius') ?? 5000,
         revealStartRadius: observer.get('revealStartRadius') ?? 0.4,
         pointCloudOpacity: observer.get('pointCloudOpacity') ?? 0.7,
         // Load Full Scene animation parameters

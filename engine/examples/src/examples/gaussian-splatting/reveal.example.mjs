@@ -7,7 +7,7 @@ import { loadSettings, saveSettings, initializeAutoSave, SETTINGS_KEYS } from '.
 import { applySettingsToRadialScript, createRadialScript, createRainScript, createGridScript, createEffect, getOrCreateBoxEffect } from './script-factory.mjs';
 
 // Build version for tracking (must match version in reveal.controls.mjs)
-const BUILD_VERSION = 'v1.5.2';
+const BUILD_VERSION = 'v1.5.6';
 
 const { GsplatRevealRadial } = await fileImport(`${rootPath}/static/scripts/esm/gsplat/reveal-radial.mjs`);
 const { GsplatRevealRain } = await fileImport(`${rootPath}/static/scripts/esm/gsplat/reveal-rain.mjs`);
@@ -266,6 +266,11 @@ assetListLoader.load(() => {
                 asset: asset,
                 unified: true
             });
+
+            // Prevent frustum culling from clipping the splat when the camera is very far away
+            // by assigning an oversized bounding box. This keeps the splat visible at long zoom distances.
+            const hugeExtent = 5000;
+            entity.gsplat.customAabb = new pc.BoundingBox(new pc.Vec3(0, 0, 0), new pc.Vec3(hugeExtent, hugeExtent, hugeExtent));
             entity.setLocalEulerAngles(180, 0, 0);
             entity.addComponent('script');
             app.root.addChild(entity);
@@ -586,7 +591,9 @@ assetListLoader.load(() => {
     camera.addComponent('camera', {
         clearColor: pc.Color.BLACK,
         fov: 80,
-        toneMapping: pc.TONEMAP_ACES
+        toneMapping: pc.TONEMAP_ACES,
+        nearClip: 0.05,
+        farClip: 100000
     });
     camera.setLocalPosition(3, 1, 0.5);
 
@@ -845,7 +852,7 @@ assetListLoader.load(() => {
         }
         
         // Build version for tracking (must match version in reveal.controls.mjs)
-        const BUILD_VERSION = 'v1.5.2';
+        const BUILD_VERSION = 'v1.5.6';
         console.log(`[Build ${BUILD_VERSION}] Starting load full scene animation`);
         
         // Reset hide scene progress when loading full scene

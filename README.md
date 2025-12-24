@@ -72,3 +72,8 @@ The server will:
 - Binary assets (`.ply`, `.sog`) are served as `application/octet-stream`
 - WebAssembly files (`.wasm`) are served as `application/wasm`
 
+
+
+
+
+
