@@ -8,7 +8,7 @@
  */
 
 // Build version for tracking (must match version in reveal.example.mjs)
-const BUILD_VERSION = 'v1.5.6';
+const BUILD_VERSION = 'v1.6.0';
 
 export const controls = ({ observer, React, jsx }) => {
     
@@ -55,9 +55,6 @@ export const controls = ({ observer, React, jsx }) => {
     container.style.maxHeight = '90vh';
     container.style.overflowY = 'visible';
     
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/faeff41f-243e-4376-908c-86db694af504',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'reveal.controls.mjs:56',message:'Standalone container created with overflowY:auto',data:{id:container.id,overflowY:container.style.overflowY,maxHeight:container.style.maxHeight},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
     
     // Load and append controls
     loadLilGUI(observer).then(element => {
@@ -208,9 +205,6 @@ if (observer.get('endRadius') === undefined) observer.set('endRadius', 5000);
     container.className = 'lilgui-controls';
     container.classList.add('compact');
     
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/faeff41f-243e-4376-908c-86db694af504',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'reveal.controls.mjs:201',message:'Controls container created (Examples mode)',data:{id:container.id,className:container.className},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
 
     // Create GUI
     const gui = new GUI({
@@ -629,21 +623,14 @@ if (observer.get('endRadius') === undefined) observer.set('endRadius', 5000);
     sceneFolder.open();
     cameraFolder.open();
     
-    // #region agent log
     // Fix: Capture wheel events on control panel to prevent camera control and enable panel scrolling
     setTimeout(() => {
-        const controlPanel = document.getElementById('controlPanel');
+        const controlPanel = document.getElementById('controlPanel-controls');
         if (!controlPanel) {
-            fetch('http://127.0.0.1:7243/ingest/faeff41f-243e-4376-908c-86db694af504',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'reveal.controls.mjs:617',message:'controlPanel not found',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});
             return;
         }
         
-        // Add wheel event handler in capture phase (before window listeners)
         const handleWheel = (e) => {
-            // #region agent log
-            fetch('http://127.0.0.1:7243/ingest/faeff41f-243e-4376-908c-86db694af504',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'reveal.controls.mjs:625',message:'Wheel event captured on controlPanel',data:{deltaY:e.deltaY,clientX:e.clientX,clientY:e.clientY,scrollTop:controlPanel.scrollTop,scrollHeight:controlPanel.scrollHeight,clientHeight:controlPanel.clientHeight},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});
-            // #endregion
-            
             // Check if event is within panel bounds
             const rect = controlPanel.getBoundingClientRect();
             const isInsidePanel = e.clientX >= rect.left && e.clientX <= rect.right && 
@@ -663,30 +650,13 @@ if (observer.get('endRadius') === undefined) observer.set('endRadius', 5000);
                 if ((currentScroll > 0 && scrollAmount < 0) || (currentScroll < maxScroll && scrollAmount > 0)) {
                     e.preventDefault();
                     controlPanel.scrollTop += scrollAmount;
-                    
-                    // #region agent log
-                    fetch('http://127.0.0.1:7243/ingest/faeff41f-243e-4376-908c-86db694af504',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'reveal.controls.mjs:640',message:'Panel scrolled',data:{oldScrollTop:currentScroll,newScrollTop:controlPanel.scrollTop,scrollAmount,preventedDefault:true},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});
-                    // #endregion
-                } else {
-                    // #region agent log
-                    fetch('http://127.0.0.1:7243/ingest/faeff41f-243e-4376-908c-86db694af504',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'reveal.controls.mjs:645',message:'Panel at scroll limit',data:{scrollTop:currentScroll,maxScroll,scrollAmount,preventedDefault:false},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});
-                    // #endregion
                 }
-            } else {
-                // #region agent log
-                fetch('http://127.0.0.1:7243/ingest/faeff41f-243e-4376-908c-86db694af504',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'reveal.controls.mjs:650',message:'Wheel event outside panel bounds',data:{clientX:e.clientX,clientY:e.clientY,rectLeft:rect.left,rectRight:rect.right,rectTop:rect.top,rectBottom:rect.bottom},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});
-                // #endregion
             }
         };
         
         // Use capture phase to intercept before window listeners
         controlPanel.addEventListener('wheel', handleWheel, { capture: true, passive: false });
-        
-        // #region agent log
-        fetch('http://127.0.0.1:7243/ingest/faeff41f-243e-4376-908c-86db694af504',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'reveal.controls.mjs:655',message:'Wheel event handler attached to controlPanel',data:{hasControlPanel:!!controlPanel},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});
-        // #endregion
     }, 1000);
-    // #endregion
 
     // Listen to observer changes to update GUI
     /**
