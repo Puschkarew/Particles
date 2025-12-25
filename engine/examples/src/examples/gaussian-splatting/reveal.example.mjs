@@ -4,10 +4,10 @@ import { deviceType, rootPath, fileImport } from 'examples/utils';
 import * as pc from 'playcanvas';
 import { AVAILABLE_SCENES, createSceneAssets, getScenesForObserver } from './scene-config.mjs';
 import { loadSettings, saveSettings, initializeAutoSave, SETTINGS_KEYS } from './settings-manager.mjs';
-import { applySettingsToRadialScript, createRadialScript, createRainScript, createGridScript, createEffect, getOrCreateBoxEffect } from './script-factory.mjs';
+import { applySettingsToRadialScript, applySettingsToRainScript, applySettingsToGridScript, applySettingsToFadeScript, applySettingsToSpreadScript, applySettingsToUnrollScript, applySettingsToTwisterScript, applySettingsToMagicScript, createRadialScript, createRainScript, createGridScript, createEffect, getOrCreateBoxEffect } from './script-factory.mjs';
 
 // Build version for tracking (must match version in reveal.controls.mjs)
-const BUILD_VERSION = 'v1.7.0';
+const BUILD_VERSION = 'v1.7.7';
 
 const { GsplatRevealRadial } = await fileImport(`${rootPath}/static/scripts/esm/gsplat/reveal-radial.mjs`);
 const { GsplatRevealRain } = await fileImport(`${rootPath}/static/scripts/esm/gsplat/reveal-rain.mjs`);
@@ -657,8 +657,42 @@ assetListLoader.load(() => {
             if (script) {
                 applySettingsToRadialScript(data, script);
             }
+        } else if (currentEffect === 'rain') {
+            const script = currentActiveScene.script?.get(GsplatRevealRain.scriptName);
+            if (script) {
+                applySettingsToRainScript(data, script);
+            }
+        } else if (currentEffect === 'grid') {
+            const script = currentActiveScene.script?.get(GsplatRevealGridEruption.scriptName);
+            if (script) {
+                applySettingsToGridScript(data, script);
+            }
+        } else if (currentEffect === 'fade') {
+            const script = currentActiveScene.script?.get(GsplatRevealFade.scriptName);
+            if (script) {
+                applySettingsToFadeScript(data, script);
+            }
+        } else if (currentEffect === 'spread') {
+            const script = currentActiveScene.script?.get(GsplatRevealSpread.scriptName);
+            if (script) {
+                applySettingsToSpreadScript(data, script);
+            }
+        } else if (currentEffect === 'unroll') {
+            const script = currentActiveScene.script?.get(GsplatRevealUnroll.scriptName);
+            if (script) {
+                applySettingsToUnrollScript(data, script);
+            }
+        } else if (currentEffect === 'twister') {
+            const script = currentActiveScene.script?.get(GsplatRevealTwister.scriptName);
+            if (script) {
+                applySettingsToTwisterScript(data, script);
+            }
+        } else if (currentEffect === 'magic') {
+            const script = currentActiveScene.script?.get(GsplatRevealMagic.scriptName);
+            if (script) {
+                applySettingsToMagicScript(data, script);
+            }
         }
-        // Note: Rain and Grid effects don't have full settings sync yet
     };
 
     // Define function to apply loaded settings (after syncSettingsToScript is defined)

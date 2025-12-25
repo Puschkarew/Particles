@@ -8,7 +8,7 @@
  */
 
 // Build version for tracking (must match version in reveal.example.mjs)
-const BUILD_VERSION = 'v1.7.0';
+const BUILD_VERSION = 'v1.7.7';
 
 export const controls = ({ observer, React, jsx }) => {
     
@@ -198,6 +198,11 @@ if (observer.get('endRadius') === undefined) observer.set('endRadius', 5000);
     if (observer.get('hideSceneLayerThickness') === undefined) observer.set('hideSceneLayerThickness', 0.1);
     const defaultDotHex = '#00ffff';
     if (!observer.get('dotTintHex')) observer.set('dotTintHex', defaultDotHex);
+    // Initialize rain effect color parameters
+    if (!observer.get('rainFallTintHex')) observer.set('rainFallTintHex', '#00ffff');
+    if (observer.get('rainFallTintIntensity') === undefined) observer.set('rainFallTintIntensity', 0.2);
+    if (!observer.get('rainHitTintHex')) observer.set('rainHitTintHex', '#ff0000');
+    if (observer.get('rainHitDuration') === undefined) observer.set('rainHitDuration', 0.5);
 
     // Create container for controls
     const container = document.createElement('div');
@@ -286,6 +291,41 @@ if (observer.get('endRadius') === undefined) observer.set('endRadius', 5000);
             observer.set('effect', effectName);
             localStorage.setItem('revealEffect', effectName);
             console.log(`[Build ${BUILD_VERSION}] Reveal effect changed to: ${effectName}`);
+            // Update folder visibility based on selected effect
+            updateEffectFolderVisibility(effectName);
+            // Ensure all effect folders stay right after Reveal folder after effect change
+            setTimeout(() => {
+                const revealDomElement = revealTypeFolder.domElement;
+                if (!revealDomElement || !revealDomElement.parentNode) return;
+                
+                const revealParent = revealDomElement.parentNode;
+                const effectFolders = [
+                    radialRevealFolder,
+                    rainRevealFolder,
+                    gridRevealFolder,
+                    instantRevealFolder,
+                    fadeRevealFolder,
+                    spreadRevealFolder,
+                    unrollRevealFolder,
+                    twisterRevealFolder,
+                    magicRevealFolder
+                ];
+                
+                // Move all effect folders to be right after Reveal folder
+                let insertAfter = revealDomElement.nextSibling;
+                effectFolders.forEach((folder, index) => {
+                    if (folder && folder.domElement) {
+                        const folderDom = folder.domElement;
+                        if (folderDom.parentNode === revealParent) {
+                            // Remove from current position
+                            if (folderDom !== insertAfter) {
+                                revealParent.insertBefore(folderDom, insertAfter);
+                            }
+                            insertAfter = folderDom.nextSibling;
+                        }
+                    }
+                });
+            }, 10);
         });
     
     // Reveal Scene button
@@ -335,12 +375,55 @@ if (observer.get('endRadius') === undefined) observer.set('endRadius', 5000);
         hideSceneMode: observer.get('hideSceneMode') ?? 0,
         hideSceneLayerThickness: observer.get('hideSceneLayerThickness') ?? 0.1,
         // Color parameters
-        dotTintHex: observer.get('dotTintHex') ?? defaultDotHex
+        dotTintHex: observer.get('dotTintHex') ?? defaultDotHex,
+        // Rain effect parameters
+        rainDistance: observer.get('rainDistance') ?? 30,
+        rainFlightTime: observer.get('rainFlightTime') ?? 2,
+        rainSize: observer.get('rainSize') ?? 0.015,
+        rainRotation: observer.get('rainRotation') ?? 0.9,
+        rainFallTintHex: observer.get('rainFallTintHex') ?? '#00ffff',
+        rainFallTintIntensity: observer.get('rainFallTintIntensity') ?? 0.2,
+        rainHitTintHex: observer.get('rainHitTintHex') ?? '#ff0000',
+        rainHitDuration: observer.get('rainHitDuration') ?? 0.5,
+        // Grid effect parameters
+        gridBlockCount: observer.get('gridBlockCount') ?? 10,
+        gridBlockSize: observer.get('gridBlockSize') ?? 2,
+        gridDelay: observer.get('gridDelay') ?? 0.2,
+        gridDuration: observer.get('gridDuration') ?? 1.0,
+        gridDotSize: observer.get('gridDotSize') ?? 0.01,
+        gridMoveTintHex: observer.get('gridMoveTintHex') ?? '#ff00ff',
+        gridMoveTintIntensity: observer.get('gridMoveTintIntensity') ?? 0.2,
+        gridLandTintHex: observer.get('gridLandTintHex') ?? '#ffff00',
+        gridLandDuration: observer.get('gridLandDuration') ?? 0.6,
+        // Fade effect parameters
+        fadeDuration: observer.get('fadeDuration') ?? 2.0,
+        // Spread effect parameters
+        spreadAngle: observer.get('spreadAngle') ?? 1.0,
+        spreadTintHex: observer.get('spreadTintHex') ?? '#ff8000',
+        spreadTintIntensity: observer.get('spreadTintIntensity') ?? 0.3,
+        // Unroll effect parameters
+        unrollAngle: observer.get('unrollAngle') ?? 1.57,
+        unrollTintHex: observer.get('unrollTintHex') ?? '#80ccff',
+        unrollTintIntensity: observer.get('unrollTintIntensity') ?? 0.2,
+        // Twister effect parameters
+        twistIntensity: observer.get('twistIntensity') ?? 1.0,
+        rotationSpeed: observer.get('rotationSpeed') ?? 0.5,
+        twistTintHex: observer.get('twistTintHex') ?? '#ff00ff',
+        twistTintIntensity: observer.get('twistTintIntensity') ?? 0.3,
+        // Magic effect parameters
+        distortionAmount: observer.get('distortionAmount') ?? 0.5,
+        pulseSpeed: observer.get('pulseSpeed') ?? 2.0,
+        magicIntensity: observer.get('magicIntensity') ?? 1.0,
+        magicTintHex: observer.get('magicTintHex') ?? '#8066ff',
+        magicTintIntensity: observer.get('magicTintIntensity') ?? 0.4
     };
 
     // ==========================================
-    // RADIAL REVEAL - Main reveal animation parameters (for Radial effect)
+    // EFFECT-SPECIFIC FOLDERS - Create all effect folders
+    // All folders will be positioned right after Reveal folder
     // ==========================================
+    
+    // RADIAL REVEAL
     const radialRevealFolder = gui.addFolder('Radial Reveal');
     radialRevealFolder.add(params, 'speed', 0, 3.3, 0.01).name('Speed').onChange(() => {
         observer.set('speed', params.speed);
@@ -354,6 +437,141 @@ if (observer.get('endRadius') === undefined) observer.set('endRadius', 5000);
     radialRevealFolder.add(params, 'dotWaveThickness', 0.1, 3.0, 0.01).name('Thickness').onChange(() => {
         observer.set('dotWaveThickness', params.dotWaveThickness);
     });
+    
+    // RAIN REVEAL
+    const rainRevealFolder = gui.addFolder('Rain Reveal');
+    rainRevealFolder.add(params, 'speed', 0, 10, 0.1).name('Speed').onChange(() => {
+        observer.set('speed', params.speed);
+    });
+    rainRevealFolder.add(params, 'acceleration', 0, 5, 0.1).name('Acceleration').onChange(() => {
+        observer.set('acceleration', params.acceleration);
+    });
+    rainRevealFolder.add(params, 'rainDistance', 0, 50, 1).name('Distance').onChange(() => {
+        observer.set('rainDistance', params.rainDistance);
+    });
+    rainRevealFolder.add(params, 'rainFlightTime', 0.1, 5, 0.1).name('Flight Time').onChange(() => {
+        observer.set('rainFlightTime', params.rainFlightTime);
+    });
+    rainRevealFolder.add(params, 'rainSize', 0, 0.1, 0.001).name('Rain Size').onChange(() => {
+        observer.set('rainSize', params.rainSize);
+    });
+    rainRevealFolder.add(params, 'rainRotation', 0, 2, 0.1).name('Rotation').onChange(() => {
+        observer.set('rainRotation', params.rainRotation);
+    });
+    rainRevealFolder.addColor(params, 'rainFallTintHex').name('Fall Colour').onChange(() => {
+        observer.set('rainFallTintHex', params.rainFallTintHex);
+    });
+    rainRevealFolder.add(params, 'rainFallTintIntensity', 0, 1, 0.01).name('Fall Tint Intensity').onChange(() => {
+        observer.set('rainFallTintIntensity', params.rainFallTintIntensity);
+    });
+    rainRevealFolder.addColor(params, 'rainHitTintHex').name('Hit Colour').onChange(() => {
+        observer.set('rainHitTintHex', params.rainHitTintHex);
+    });
+    rainRevealFolder.add(params, 'rainHitDuration', 0, 2, 0.1).name('Hit Duration').onChange(() => {
+        observer.set('rainHitDuration', params.rainHitDuration);
+    });
+    
+    // GRID REVEAL
+    const gridRevealFolder = gui.addFolder('Grid Reveal');
+    gridRevealFolder.add(params, 'gridBlockCount', 1, 20, 1).name('Block Count').onChange(() => {
+        observer.set('gridBlockCount', params.gridBlockCount);
+    });
+    gridRevealFolder.add(params, 'gridBlockSize', 0.5, 5, 0.1).name('Block Size').onChange(() => {
+        observer.set('gridBlockSize', params.gridBlockSize);
+    });
+    gridRevealFolder.add(params, 'gridDelay', 0, 2, 0.1).name('Delay').onChange(() => {
+        observer.set('gridDelay', params.gridDelay);
+    });
+    gridRevealFolder.add(params, 'gridDuration', 0.1, 5, 0.1).name('Duration').onChange(() => {
+        observer.set('gridDuration', params.gridDuration);
+    });
+    gridRevealFolder.add(params, 'gridDotSize', 0, 0.1, 0.001).name('Dot Size').onChange(() => {
+        observer.set('gridDotSize', params.gridDotSize);
+    });
+    
+    // INSTANT REVEAL (no settings needed, but create folder for consistency)
+    const instantRevealFolder = gui.addFolder('Instant Reveal');
+    instantRevealFolder.add({ note: 'No settings available' }, 'note').name('Note').disable();
+    
+    // FADE REVEAL
+    const fadeRevealFolder = gui.addFolder('Fade Reveal');
+    fadeRevealFolder.add(params, 'fadeDuration', 0.1, 10, 0.1).name('Duration').onChange(() => {
+        observer.set('fadeDuration', params.fadeDuration);
+    });
+    
+    // SPREAD REVEAL
+    const spreadRevealFolder = gui.addFolder('Spread Reveal');
+    spreadRevealFolder.add(params, 'speed', 0, 10, 0.1).name('Speed').onChange(() => {
+        observer.set('speed', params.speed);
+    });
+    spreadRevealFolder.add(params, 'acceleration', 0, 5, 0.1).name('Acceleration').onChange(() => {
+        observer.set('acceleration', params.acceleration);
+    });
+    spreadRevealFolder.add(params, 'spreadAngle', 0, 5, 0.1).name('Spread Angle').onChange(() => {
+        observer.set('spreadAngle', params.spreadAngle);
+    });
+    
+    // UNROLL REVEAL
+    const unrollRevealFolder = gui.addFolder('Unroll Reveal');
+    unrollRevealFolder.add(params, 'speed', 0, 10, 0.1).name('Speed').onChange(() => {
+        observer.set('speed', params.speed);
+    });
+    unrollRevealFolder.add(params, 'unrollAngle', 0, 3.14, 0.1).name('Unroll Angle').onChange(() => {
+        observer.set('unrollAngle', params.unrollAngle);
+    });
+    
+    // TWISTER REVEAL
+    const twisterRevealFolder = gui.addFolder('Twister Reveal');
+    twisterRevealFolder.add(params, 'speed', 0, 10, 0.1).name('Speed').onChange(() => {
+        observer.set('speed', params.speed);
+    });
+    twisterRevealFolder.add(params, 'twistIntensity', 0, 2, 0.1).name('Twist Intensity').onChange(() => {
+        observer.set('twistIntensity', params.twistIntensity);
+    });
+    twisterRevealFolder.add(params, 'rotationSpeed', 0, 2, 0.1).name('Rotation Speed').onChange(() => {
+        observer.set('rotationSpeed', params.rotationSpeed);
+    });
+    
+    // MAGIC REVEAL
+    const magicRevealFolder = gui.addFolder('Magic Reveal');
+    magicRevealFolder.add(params, 'speed', 0, 10, 0.1).name('Speed').onChange(() => {
+        observer.set('speed', params.speed);
+    });
+    magicRevealFolder.add(params, 'distortionAmount', 0, 2, 0.1).name('Distortion').onChange(() => {
+        observer.set('distortionAmount', params.distortionAmount);
+    });
+    magicRevealFolder.add(params, 'pulseSpeed', 0, 5, 0.1).name('Pulse Speed').onChange(() => {
+        observer.set('pulseSpeed', params.pulseSpeed);
+    });
+    magicRevealFolder.add(params, 'magicIntensity', 0, 2, 0.1).name('Intensity').onChange(() => {
+        observer.set('magicIntensity', params.magicIntensity);
+    });
+    
+    // Function to show/hide effect folders based on selected effect
+    const updateEffectFolderVisibility = (effectName) => {
+        // Show only the folder for the current effect, hide others
+        const folders = {
+            radial: radialRevealFolder,
+            rain: rainRevealFolder,
+            grid: gridRevealFolder,
+            instant: instantRevealFolder,
+            fade: fadeRevealFolder,
+            spread: spreadRevealFolder,
+            unroll: unrollRevealFolder,
+            twister: twisterRevealFolder,
+            magic: magicRevealFolder
+        };
+        
+        Object.entries(folders).forEach(([name, folder]) => {
+            const shouldShow = name === effectName;
+            if (folder && folder.domElement) {
+                folder.domElement.style.display = shouldShow ? '' : 'none';
+            }
+        });
+    };
+    
+    // Initialize visibility based on current effect
+    updateEffectFolderVisibility(currentEffect);
 
     // ==========================================
     // OCEAN WAVE - Ocean wave animation parameters
@@ -758,6 +976,38 @@ if (observer.get('endRadius') === undefined) observer.set('endRadius', 5000);
     sceneFolder.open();
     cameraFolder.open();
     
+    // Ensure all effect folders are positioned right after Reveal folder in DOM
+    // This fixes the issue where effect settings move to the bottom when effect type changes
+    setTimeout(() => {
+        const revealDomElement = revealTypeFolder.domElement;
+        if (!revealDomElement || !revealDomElement.parentNode) return;
+        
+        const revealParent = revealDomElement.parentNode;
+        const effectFolders = [
+            radialRevealFolder,
+            rainRevealFolder,
+            gridRevealFolder,
+            instantRevealFolder,
+            fadeRevealFolder,
+            spreadRevealFolder,
+            unrollRevealFolder,
+            twisterRevealFolder,
+            magicRevealFolder
+        ];
+        
+        // Move all effect folders to be right after Reveal folder
+        let insertAfter = revealDomElement.nextSibling;
+        effectFolders.forEach((folder, index) => {
+            if (folder && folder.domElement) {
+                const folderDom = folder.domElement;
+                if (folderDom.parentNode === revealParent && folderDom !== insertAfter) {
+                    revealParent.insertBefore(folderDom, insertAfter);
+                    insertAfter = folderDom.nextSibling;
+                }
+            }
+        });
+    }, 0);
+    
     // Fix: Capture wheel events on control panel to prevent camera control and enable panel scrolling
     setTimeout(() => {
         const controlPanel = document.getElementById('controlPanel-controls');
@@ -841,6 +1091,39 @@ if (observer.get('endRadius') === undefined) observer.set('endRadius', 5000);
         'distanceDarkening',
         'baseBrightness',
         'dotTintHex',
+        'rainDistance',
+        'rainFlightTime',
+        'rainSize',
+        'rainRotation',
+        'rainFallTintHex',
+        'rainFallTintIntensity',
+        'rainHitTintHex',
+        'rainHitDuration',
+        'gridBlockCount',
+        'gridBlockSize',
+        'gridDelay',
+        'gridDuration',
+        'gridDotSize',
+        'gridMoveTintHex',
+        'gridMoveTintIntensity',
+        'gridLandTintHex',
+        'gridLandDuration',
+        'fadeDuration',
+        'spreadAngle',
+        'spreadTintHex',
+        'spreadTintIntensity',
+        'unrollAngle',
+        'unrollTintHex',
+        'unrollTintIntensity',
+        'twistIntensity',
+        'rotationSpeed',
+        'twistTintHex',
+        'twistTintIntensity',
+        'distortionAmount',
+        'pulseSpeed',
+        'magicIntensity',
+        'magicTintHex',
+        'magicTintIntensity',
         'loadFullSceneDuration',
         'loadFullSceneWaveThickness',
         'loadFullSceneMotionFadeRange'

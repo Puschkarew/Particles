@@ -16,6 +16,15 @@ export const SETTINGS_KEYS = [
     'waveSpeed', 'waveAmplitude', 'distanceDarkening', 'baseBrightness',
     'oscillationIntensity', 'endRadius', 'revealStartRadius',
     'pointCloudOpacity', 'dotTintHex', 'effect',
+    'rainDistance', 'rainFlightTime', 'rainSize', 'rainRotation',
+    'rainFallTintHex', 'rainFallTintIntensity', 'rainHitTintHex', 'rainHitDuration',
+    'gridBlockCount', 'gridBlockSize', 'gridDelay', 'gridDuration', 'gridDotSize',
+    'gridMoveTintHex', 'gridMoveTintIntensity', 'gridLandTintHex', 'gridLandDuration',
+    'fadeDuration',
+    'spreadAngle', 'spreadTintHex', 'spreadTintIntensity',
+    'unrollAngle', 'unrollTintHex', 'unrollTintIntensity',
+    'twistIntensity', 'rotationSpeed', 'twistTintHex', 'twistTintIntensity',
+    'distortionAmount', 'pulseSpeed', 'magicIntensity', 'magicTintHex', 'magicTintIntensity',
     'loadFullSceneDuration', 'loadFullSceneWaveThickness', 'loadFullSceneMotionFadeRange',
     'hideSceneDuration', 'hideSceneMode', 'hideSceneLayerThickness'
 ];
