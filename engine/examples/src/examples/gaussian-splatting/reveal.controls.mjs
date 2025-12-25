@@ -8,7 +8,7 @@
  */
 
 // Build version for tracking (must match version in reveal.example.mjs)
-const BUILD_VERSION = 'v1.7.7';
+const BUILD_VERSION = 'v1.7.9';
 
 export const controls = ({ observer, React, jsx }) => {
     

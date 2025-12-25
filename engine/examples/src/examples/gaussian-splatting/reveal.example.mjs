@@ -7,7 +7,7 @@ import { loadSettings, saveSettings, initializeAutoSave, SETTINGS_KEYS } from '.
 import { applySettingsToRadialScript, applySettingsToRainScript, applySettingsToGridScript, applySettingsToFadeScript, applySettingsToSpreadScript, applySettingsToUnrollScript, applySettingsToTwisterScript, applySettingsToMagicScript, createRadialScript, createRainScript, createGridScript, createEffect, getOrCreateBoxEffect } from './script-factory.mjs';
 
 // Build version for tracking (must match version in reveal.controls.mjs)
-const BUILD_VERSION = 'v1.7.7';
+const BUILD_VERSION = 'v1.7.9';
 
 const { GsplatRevealRadial } = await fileImport(`${rootPath}/static/scripts/esm/gsplat/reveal-radial.mjs`);
 const { GsplatRevealRain } = await fileImport(`${rootPath}/static/scripts/esm/gsplat/reveal-rain.mjs`);
@@ -136,19 +136,16 @@ const pendingSceneChanges = [];
 // Handle scene change to specific scene
 data.on('changeScene', (sceneId) => {
     if (typeof sceneId === 'string') {
-        // changeToScene will be defined inside assetListLoader.load callback
-        // Store pending change and process it when function is available
-        if (pendingSceneChanges.indexOf(sceneId) === -1) {
-            pendingSceneChanges.push(sceneId);
-        }
         // Try to process immediately if function is already defined
         if (typeof window._changeToScene === 'function') {
+            // changeToScene will handle transitionStarted flag internally
             window._changeToScene(sceneId);
-            const index = pendingSceneChanges.indexOf(sceneId);
-            if (index > -1) {
-                pendingSceneChanges.splice(index, 1);
-            }
         } else {
+            // changeToScene not ready yet, store in pending
+            // Only add if not already in pending (avoid duplicates)
+            if (pendingSceneChanges.indexOf(sceneId) === -1) {
+                pendingSceneChanges.push(sceneId);
+            }
         }
     } else {
         console.error(`[Build ${BUILD_VERSION}] ❌ Invalid sceneId type: ${typeof sceneId}, expected string`);
@@ -493,13 +490,56 @@ assetListLoader.load(() => {
     
     // Function to change to a specific scene
     const changeToScene = (targetSceneId) => {
+        
+        // If transition is in progress, cancel it and start new transition with target scene
         if (transitionStarted) {
-            console.warn(`[Build ${BUILD_VERSION}] ⚠️ Transition already in progress, ignoring scene change request to "${targetSceneId}"`);
-            return;
+            console.log(`[Build ${BUILD_VERSION}] ⚠️ Transition in progress, canceling and switching to "${targetSceneId}"`);
+            
+            // Cancel current transition timeout if exists
+            if (window._sceneTransitionTimeout) {
+                clearTimeout(window._sceneTransitionTimeout);
+                window._sceneTransitionTimeout = null;
+            }
+            
+            // Disable nextScene if it exists (the one that was being transitioned to)
+            if (nextScene && nextScene !== currentActiveScene) {
+                nextScene.enabled = false;
+                // Clean up scripts from nextScene
+                if (nextScene.script) {
+                    nextScene.script?.destroy(GsplatRevealRadial.scriptName);
+                    nextScene.script?.destroy(GsplatRevealRain.scriptName);
+                    nextScene.script?.destroy(GsplatRevealGridEruption.scriptName);
+                    nextScene.script?.destroy(GsplatRevealInstant.scriptName);
+                    nextScene.script?.destroy(GsplatRevealFade.scriptName);
+                    nextScene.script?.destroy(GsplatRevealSpread.scriptName);
+                    nextScene.script?.destroy(GsplatRevealUnroll.scriptName);
+                    nextScene.script?.destroy(GsplatRevealTwister.scriptName);
+                    nextScene.script?.destroy(GsplatRevealMagic.scriptName);
+                }
+            }
+            
+            // Disable ALL scenes to ensure clean state
+            Object.values(sceneEntities).forEach((sceneEntity) => {
+                if (sceneEntity && sceneEntity.enabled) {
+                    sceneEntity.enabled = false;
+                }
+            });
+            
+            // Reset transition flag to allow new transition
+            transitionStarted = false;
         }
         
-        if (targetSceneId === currentSceneId) {
+        // Set transition flag IMMEDIATELY to prevent other calls from proceeding
+        transitionStarted = true;
+        
+        // Check if we're already on this scene
+        // Use a more robust check: compare with both currentSceneId and currentActiveScene
+        const isAlreadyOnScene = targetSceneId === currentSceneId || 
+            (currentActiveScene && sceneEntities[targetSceneId] === currentActiveScene);
+        
+        if (isAlreadyOnScene) {
             console.log(`[Build ${BUILD_VERSION}] ℹ️ Already on scene "${targetSceneId}"`);
+            transitionStarted = false; // Reset flag since we're not actually changing
             return;
         }
         
@@ -514,6 +554,7 @@ assetListLoader.load(() => {
                 error: 'Scene not found in scene info map',
                 availableScenes: Array.from(sceneInfoMap.keys())
             });
+            transitionStarted = false; // Reset flag on error
             return;
         }
         
@@ -530,6 +571,7 @@ assetListLoader.load(() => {
                 url: sceneInfo.url,
                 error: 'Asset creation/retrieval failed'
             });
+            transitionStarted = false; // Reset flag on error
             return;
         }
         
@@ -556,6 +598,8 @@ assetListLoader.load(() => {
             asset.ready(onAssetReady);
             asset.once('error', onAssetError);
             app.assets.load(asset);
+            // NOTE: transitionStarted flag is already set, so other calls will be blocked
+            // Flag will be reset when asset loads and changeToScene is called again
             return; // Will retry after asset loads or error
         }
         
@@ -585,6 +629,13 @@ assetListLoader.load(() => {
                 // Set next scene for transition
                 nextScene = entity;
                 
+                // CRITICAL: Update currentSceneId and currentActiveScene IMMEDIATELY after entity creation
+                // This ensures that if user clicks "Reveal Scene" during transition, the correct scene is used
+                const oldCurrentSceneId = currentSceneId;
+                const oldCurrentActiveScene = currentActiveScene;
+                currentSceneId = targetSceneId;
+                currentActiveScene = entity;
+                
                 // Start transition
                 startSceneTransition();
             };
@@ -613,13 +664,18 @@ assetListLoader.load(() => {
     window._changeToScene = changeToScene;
     
     
-    // Process any pending scene changes
+    // Process any pending scene changes - process them sequentially, but only the last one if multiple
     if (pendingSceneChanges.length > 0) {
-        const scenesToProcess = [...pendingSceneChanges]; // Copy array
-        pendingSceneChanges.length = 0; // Clear before processing
-        scenesToProcess.forEach(sceneId => {
-            changeToScene(sceneId);
-        });
+        // If multiple changes are pending, only process the LAST one (user's final selection)
+        // This prevents loading intermediate scenes when user quickly changes selection
+        const lastSceneId = pendingSceneChanges[pendingSceneChanges.length - 1];
+        pendingSceneChanges.length = 0; // Clear all pending changes
+        
+        // Only process if it's different from current scene
+        if (lastSceneId && lastSceneId !== currentSceneId) {
+            changeToScene(lastSceneId);
+        } else if (lastSceneId === currentSceneId) {
+        }
     }
 
     // Get current active script
@@ -729,13 +785,48 @@ assetListLoader.load(() => {
     // Handle reveal scene button - start reveal animation
     data.on('revealScene', () => {
         const currentEffect = data.get('effect') || 'radial';
-        const targetScene = currentActiveScene || scene1 || (sceneEntities[currentSceneId] || null);
+        
+        // CRITICAL: Determine target scene based on transition state
+        // Priority: 1) nextScene if transition in progress, 2) sceneEntities[currentSceneId], 3) currentActiveScene, 4) scene1
+        let targetScene = null;
+        
+        if (transitionStarted && nextScene) {
+            // Transition in progress - use nextScene (the new scene being transitioned to)
+            targetScene = nextScene;
+        } else {
+            // No transition in progress - use currentSceneId
+            targetScene = sceneEntities[currentSceneId];
+        }
+        
+        // Fallback to currentActiveScene or scene1 if still not found
         if (!targetScene) {
-            console.warn(`[Build ${BUILD_VERSION}] ⚠️ Cannot start reveal: no active scene`);
+            targetScene = currentActiveScene || scene1 || null;
+        }
+        
+        
+        if (!targetScene) {
+            console.warn(`[Build ${BUILD_VERSION}] ⚠️ Cannot start reveal: no active scene for "${currentSceneId}"`);
             return;
         }
         
-        console.log(`[Build ${BUILD_VERSION}] 🎬 Starting reveal animation for scene "${currentSceneId}" with effect "${currentEffect}"`);
+        // Update currentActiveScene to ensure it points to the correct scene
+        if (currentActiveScene !== targetScene) {
+            currentActiveScene = targetScene;
+        }
+        
+        console.log(`[Build ${BUILD_VERSION}] 🎬 Starting reveal animation for scene "${currentSceneId}" (${targetScene.name}) with effect "${currentEffect}"`);
+        
+        // CRITICAL: Disable ALL other scenes BEFORE enabling target scene
+        // This prevents the previous scene from being visible for a moment
+        
+        Object.values(sceneEntities).forEach((sceneEntity) => {
+            if (sceneEntity && sceneEntity !== targetScene) {
+                const wasEnabled = sceneEntity.enabled;
+                sceneEntity.enabled = false;
+                if (wasEnabled) {
+                }
+            }
+        });
         
         // Enable the scene first (it was disabled to show black screen)
         if (!targetScene.enabled) {
@@ -891,12 +982,12 @@ assetListLoader.load(() => {
 
     /**
      * Start transition from current scene to next scene with reverse reveal animation
+     * NOTE: transitionStarted flag is already set by changeToScene before calling this function
      */
     const startSceneTransition = () => {
-        if (transitionStarted) {
-            console.warn('Transition already in progress, ignoring request');
-            return;
-        }
+        
+        // NOTE: transitionStarted is already set by changeToScene, so we don't check it here
+        // This function is only called from changeToScene, which already has the flag set
 
         // Validate entities exist
         if (!currentActiveScene || !nextScene) {
@@ -904,27 +995,98 @@ assetListLoader.load(() => {
                 currentActiveScene: !!currentActiveScene,
                 nextScene: !!nextScene
             });
+            transitionStarted = false; // Reset flag on validation failure
             return;
         }
 
         // Validate that scenes have script components
         if (!currentActiveScene.script) {
             console.error('Scene transition failed: currentActiveScene missing script component');
+            transitionStarted = false; // Reset flag on validation failure
             return;
         }
         if (!nextScene.script) {
             console.error('Scene transition failed: nextScene missing script component');
+            transitionStarted = false; // Reset flag on validation failure
             return;
         }
 
         // Check if reveal was started (script exists on current scene)
+        // If reveal not started, we can still transition but without reverse animation
         const currentScript = getActiveScript();
-        if (!currentScript && !scene1Script) {
-            console.warn(`[Build ${BUILD_VERSION}] ⚠️ Scene transition blocked: reveal animation not started. Please click "Reveal Scene" button first.`);
-            return;
+        const hasRevealScript = currentScript || scene1Script;
+        
+        if (!hasRevealScript) {
+            // No reveal script - transition immediately without reverse animation
+            console.log(`[Build ${BUILD_VERSION}] ℹ️ Reveal animation not started, transitioning immediately without reverse animation`);
+            
+            // Disable current scene immediately
+            if (currentActiveScene) {
+                currentActiveScene.enabled = false;
+            }
+            
+            // Disable ALL other scenes
+            Object.values(sceneEntities).forEach((sceneEntity) => {
+                if (sceneEntity && sceneEntity !== nextScene && sceneEntity.enabled) {
+                    sceneEntity.enabled = false;
+                }
+            });
+            
+            // Set render order
+            if (currentActiveScene) {
+                currentActiveScene.renderOrder = 0;
+            }
+            if (nextScene) {
+                nextScene.renderOrder = 1;
+                nextScene.enabled = false; // Keep disabled until user clicks "Reveal Scene"
+            }
+            
+            // Complete transition immediately
+            const oldCurrent = currentActiveScene;
+            const oldCurrentSceneId = currentSceneId;
+            currentActiveScene = nextScene;
+            
+            // Find the new scene ID
+            const newSceneId = availableScenes.find(s => 
+                sceneEntities[s.id] === currentActiveScene
+            )?.id || currentSceneId;
+            currentSceneId = newSceneId;
+            
+            // Update nextScene reference
+            nextScene = oldCurrent;
+            
+            // Clean up old scene scripts
+            if (nextScene && nextScene.script) {
+                nextScene.script?.destroy(GsplatRevealRadial.scriptName);
+                nextScene.script?.destroy(GsplatRevealRain.scriptName);
+                nextScene.script?.destroy(GsplatRevealGridEruption.scriptName);
+                nextScene.script?.destroy(GsplatRevealInstant.scriptName);
+                nextScene.script?.destroy(GsplatRevealFade.scriptName);
+                nextScene.script?.destroy(GsplatRevealSpread.scriptName);
+                nextScene.script?.destroy(GsplatRevealUnroll.scriptName);
+                nextScene.script?.destroy(GsplatRevealTwister.scriptName);
+                nextScene.script?.destroy(GsplatRevealMagic.scriptName);
+                nextScene.renderOrder = 1;
+            }
+            
+            // Clear script references
+            scene1Script = null;
+            
+            // Update camera focus
+            if (orbitCameraScript) {
+                orbitCameraScript.focusEntity = currentActiveScene;
+            }
+            
+            // Emit event to update UI
+            data.emit('sceneChanged', currentSceneId);
+            
+            // Reset transition flag
+            transitionStarted = false;
+            
+            return; // Transition complete, exit early
         }
 
-        transitionStarted = true;
+        // Flag is already set by changeToScene, no need to set it again
 
         try {
             // Fixed transition parameters (no longer configurable)
@@ -962,69 +1124,92 @@ assetListLoader.load(() => {
             // Calculate when to start next scene reveal based on overlap
             const nextSceneStartTime = safeReverseDuration * currentOverlap;
 
-            // Start reverse reveal on current scene
+            // Note: currentSceneId and currentActiveScene are already updated in changeToScene
+            // after entity creation, so we don't need to update them here again
+            
+            // Find the old scene for reverse animation and cleanup
+            // The old scene should be the one that was currentActiveScene before we updated it in changeToScene
+            // It should be disabled and have renderOrder 0
+            const oldScene = Object.values(sceneEntities).find(s => 
+                s && s !== currentActiveScene && s.enabled === false && s.renderOrder === 0
+            );
+            
+            // Update nextScene to be the old scene (for cleanup later)
+            if (oldScene) {
+                nextScene = oldScene;
+            }
+            
+            // Save oldCurrentSceneId for use in setTimeout callback
+            const oldCurrentSceneIdForCleanup = currentSceneId; // This is actually the new scene ID now
+            
+            // Disable current active scene (the new one) - it should already be disabled, but ensure it
+            if (currentActiveScene) {
+                currentActiveScene.enabled = false;
+            }
+            
+            // Disable ALL other scenes to ensure only currentActiveScene is active after transition
+            Object.values(sceneEntities).forEach((sceneEntity) => {
+                if (sceneEntity && sceneEntity !== currentActiveScene && sceneEntity.enabled) {
+                    sceneEntity.enabled = false;
+                }
+            });
+            
+            // Start reverse reveal on OLD current scene
+            // Find the scene that was active before (it should be disabled and have renderOrder 0)
+            const sceneToReverse = Object.values(sceneEntities).find(s => 
+                s && s !== currentActiveScene && s.enabled === false && s.renderOrder === 0
+            );
+            
             try {
-                currentActiveScene.script?.destroy(GsplatRevealRadial.scriptName);
-                const reverseScript = createRadialScript(data, currentActiveScene, GsplatRevealRadial, true, currentReverseSpeed);
+                if (sceneToReverse && sceneToReverse.script) {
+                    sceneToReverse.script?.destroy(GsplatRevealRadial.scriptName);
+                    const reverseScript = createRadialScript(data, sceneToReverse, GsplatRevealRadial, true, currentReverseSpeed);
                 if (!reverseScript) {
                     console.error('Failed to create reverse script');
                     transitionStarted = false;
                     return;
                 }
                 reverseScript.delay = 0; // Start immediately
+                }
             } catch (error) {
                 console.error('Error creating reverse script:', error);
                 transitionStarted = false;
                 return;
             }
 
-            // CRITICAL: Disable current scene FIRST to prevent overlap
-            if (currentActiveScene) {
-                currentActiveScene.enabled = false;
-            }
-            
-            // Prepare next scene - DO NOT create reveal script automatically
+            // Prepare next scene (which is now currentActiveScene) - DO NOT create reveal script automatically
             // User must click "Reveal Scene" button to start reveal animation
             try {
                 // Set render order to ensure proper layering (higher = on top)
-                if (currentActiveScene) {
-                    currentActiveScene.renderOrder = 0;
-                }
-                nextScene.renderOrder = 1;
-                
-                // DO NOT enable next scene - keep it disabled (black screen)
-                // User must click "Reveal Scene" button to start reveal animation
-                nextScene.enabled = false;
-            } catch (error) {
-                console.error('Error creating forward script:', error);
-                transitionStarted = false;
                 if (nextScene) {
-                    nextScene.enabled = false;
+                    nextScene.renderOrder = 0;
                 }
-                // Re-enable current scene if there was an error
+                currentActiveScene.renderOrder = 1;
+                
+                // DO NOT enable current scene - keep it disabled (black screen)
+                // User must click "Reveal Scene" button to start reveal animation
+                currentActiveScene.enabled = false;
+            } catch (error) {
+                console.error('Error preparing scene:', error);
+                transitionStarted = false;
                 if (currentActiveScene) {
-                    currentActiveScene.enabled = true;
+                    currentActiveScene.enabled = false;
+                }
+                // Re-enable old scene if there was an error
+                if (nextScene) {
+                    nextScene.enabled = true;
+                    // Revert references on error
+                    currentActiveScene = nextScene;
+                    currentSceneId = oldCurrentSceneId;
                 }
                 return;
             }
 
-            // After transition completes, clean up old scene and swap references
+            // After transition completes, clean up old scene (which is now in nextScene)
             const timeoutId = setTimeout(() => {
                 try {
-                    // Swap references: next scene becomes current, old current becomes next
-                    // Note: currentActiveScene is already disabled above, so we just swap
-                    const oldCurrent = currentActiveScene;
-                    const oldCurrentSceneId = currentSceneId;
-                    currentActiveScene = nextScene;
-                    
-                    // Find the new scene ID
-                    const newSceneId = availableScenes.find(s => 
-                        sceneEntities[s.id] === currentActiveScene
-                    )?.id || currentSceneId;
-                    currentSceneId = newSceneId;
-                    
-                    // Update nextScene to be the old current (for potential future transitions)
-                    nextScene = oldCurrent;
+                    // currentActiveScene and currentSceneId are already updated above
+                    // Just clean up the old scene (nextScene)
                     
                     // Now clean up the old scene (which is now in nextScene): remove all scripts
                     if (nextScene && nextScene.script) {
@@ -1042,12 +1227,36 @@ assetListLoader.load(() => {
                     }
                     
                     // Ensure current active scene is properly set on top
-                    // DO NOT enable it - keep disabled (black screen) until user clicks "Reveal Scene"
+                    // Only disable if reveal hasn't been started yet (no reveal script)
                     if (currentActiveScene) {
                         currentActiveScene.renderOrder = 1;
-                        // Keep scene disabled - user must click "Reveal Scene" to start reveal
-                        currentActiveScene.enabled = false;
+                        
+                        // Check if reveal script exists - if it does, keep scene enabled
+                        const hasRevealScript = currentActiveScene.script?.get(GsplatRevealRadial.scriptName) ||
+                                               currentActiveScene.script?.get(GsplatRevealRain.scriptName) ||
+                                               currentActiveScene.script?.get(GsplatRevealGridEruption.scriptName) ||
+                                               currentActiveScene.script?.get(GsplatRevealInstant.scriptName) ||
+                                               currentActiveScene.script?.get(GsplatRevealFade.scriptName) ||
+                                               currentActiveScene.script?.get(GsplatRevealSpread.scriptName) ||
+                                               currentActiveScene.script?.get(GsplatRevealUnroll.scriptName) ||
+                                               currentActiveScene.script?.get(GsplatRevealTwister.scriptName) ||
+                                               currentActiveScene.script?.get(GsplatRevealMagic.scriptName) ||
+                                               scene1Script;
+                        
+                        if (!hasRevealScript) {
+                            // No reveal script - keep scene disabled (black screen) until user clicks "Reveal Scene"
+                            currentActiveScene.enabled = false;
+                        } else {
+                            // Reveal script exists - keep scene enabled
+                        }
                     }
+                    
+                    // CRITICAL: Ensure ALL other scenes are disabled
+                    Object.values(sceneEntities).forEach((sceneEntity) => {
+                        if (sceneEntity && sceneEntity !== currentActiveScene && sceneEntity.enabled) {
+                            sceneEntity.enabled = false;
+                        }
+                    });
                     
                     // Clear script references - no reveal script until user clicks "Reveal Scene"
                     scene1Script = null;
@@ -1093,7 +1302,7 @@ assetListLoader.load(() => {
         }
         
         // Build version for tracking (must match version in reveal.controls.mjs)
-        const BUILD_VERSION = 'v1.5.9';
+        const BUILD_VERSION = 'v1.7.9';
         console.log(`[Build ${BUILD_VERSION}] Starting load full scene animation`);
         
         // Reset hide scene progress when loading full scene
